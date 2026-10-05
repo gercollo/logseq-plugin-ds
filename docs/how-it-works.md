@@ -80,6 +80,10 @@ and therefore any `((reference))` to it, and its properties — survives. The re
 or split lines: extra lines become new blocks, and blocks left over are removed. `/Spellcheck`
 instructs the model to keep every point and its line breaks, changing only spelling and obvious typos.
 
+Before applying a built-in `/Spellcheck` reply, a complete wrapper of standalone `"""` lines
+is removed if the source did not already start or end with triple quotes. Source quotation
+boundaries and custom prompt overrides keep their formatting.
+
 Two things are never removed. A block something links to: on a file graph that is a block
 carrying `id::`, which Logseq writes only once a reference exists; on a DB graph the plugin
 does not query what links to a block, so **nothing is removed there at all**. And a note of

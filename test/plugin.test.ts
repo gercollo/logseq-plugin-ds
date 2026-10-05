@@ -353,6 +353,42 @@ describe('running a command', () => {
     expect(h.open.size).toBe(0);
   });
 
+  it.each([
+    ['this is an apple', '"""\nthis is an apple\n"""', 'this is an apple'],
+    ['this is an aple', '"""\nthis is an apple\n"""', 'this is an apple'],
+    ['this is an apple\n\t- another apple', '"""\nthis is an apple\n\t- another apple\n"""', 'this is an apple\n\t- another apple'],
+    ['"""\nthis is an apple\n"""', '"""\nthis is an apple\n"""', '"""\nthis is an apple\n"""'],
+    ['Code:\n```python\nx = """an apple"""\n```', '"""\nCode:\n```python\nx = """an apple"""\n```\n"""', 'Code:\n```python\nx = """an apple"""\n```'],
+  ])('keeps source quotes but removes added /Spellcheck wrapper lines: %s', async (source, reply, expected) => {
+    const { ops, writes } = fakeOps({ context: source, texts: [source] });
+    const h = fakeHost({ ...CONFIGURED, tag: '' }, { ops, chat: answering(reply).chat });
+    startPlugin(h.host);
+    await h.run('Spellcheck');
+    expect(writes).toEqual([`rewrite ${expected}|`]);
+    expect(h.toasts).toEqual(['info: Spellcheck…']);
+    expect(h.open.size).toBe(0);
+  });
+
+  it('preserves a quoted /Ask AI answer', async () => {
+    const { ops, writes } = fakeOps();
+    const h = fakeHost({ ...CONFIGURED, tag: '' }, { ops, chat: answering('"""\nA quoted answer.\n"""').chat });
+    startPlugin(h.host);
+    await h.run('Ask AI');
+    expect(writes).toEqual(['insert """\nA quoted answer.\n"""']);
+  });
+
+  it('preserves intentional quote formatting in a custom Spellcheck override', async () => {
+    const { ops, writes } = fakeOps();
+    const h = fakeHost({
+      ...CONFIGURED, tag: '', customPrompts: { enable: true, prompts: [
+        { name: 'Spellcheck', prompt: 'Wrap {{text}} in triple quotes.', output: 'replace' },
+      ] },
+    }, { ops, chat: answering('"""\nHello\n"""').chat });
+    startPlugin(h.host);
+    await h.run('Spellcheck');
+    expect(writes).toEqual(['rewrite """\nHello\n"""|']);
+  });
+
   it('closes the waiting toast and shows the error when the model call fails', async () => {
     const h = fakeHost(CONFIGURED, { chat: async () => { throw new Error('Invalid API key (401): nope'); } });
     startPlugin(h.host);

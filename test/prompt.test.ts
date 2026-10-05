@@ -1,10 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { buildUserMessage, resolvePrompts, validateCustomPrompt } from '../src/prompt';
+import { buildUserMessage, resolvePrompts, unwrapRewriteQuotes, validateCustomPrompt } from '../src/prompt';
 import { presetPrompts } from '../src/prompts';
 import { SAME_LANGUAGE } from '../src/prompts/shared';
 import { IPrompt, PromptOutputType } from '../src/prompts/type';
 
 const PRESETS = presetPrompts;
+
+describe('rewrite quote boundaries', () => {
+  it.each([
+    ['plain source', '"""\r\nthis is an apple\r\n"""', 'this is an apple'],
+    ['plain source', '"""\nthis is an apple', '"""\nthis is an apple'],
+    ['plain source', 'this is an apple\n"""', 'this is an apple\n"""'],
+    ['"""quoted source', '"""\nquoted source\n"""', '"""\nquoted source\n"""'],
+    ['quoted source"""', '"""\nquoted source\n"""', '"""\nquoted source\n"""'],
+  ])('only removes an unambiguous complete added wrapper: %j', (source, reply, expected) => {
+    expect(unwrapRewriteQuotes(reply, source)).toBe(expected);
+  });
+});
 
 describe('buildUserMessage', () => {
   it('substitutes {{text}} and {content}', () => {
