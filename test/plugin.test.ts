@@ -14,7 +14,7 @@ import {
   responseItems,
   startPlugin,
 } from '../src/plugin';
-import { presetPrompts } from '../src/prompts';
+import { Spellcheck, presetPrompts } from '../src/prompts';
 import { PromptOutputType } from '../src/prompts/type';
 import { NO_SEARCH_KEY_MESSAGE } from '../src/search';
 import { readSettings } from '../src/settings';
@@ -120,7 +120,7 @@ function fakeHost(settings: unknown, opts: { ops?: BlockOps; chat?: Chat | null;
 const CONFIGURED = { apiKey: 'sk-x', basePath: 'https://api.openai.com/v1', model: 'gpt-4o-mini', temperature: '0.3', tag: '[[🤖]]' };
 
 describe('a fresh install with nothing configured', () => {
-  it('registers the twelve built-in commands, not the searching ones, and says the key is missing', () => {
+  it('registers the built-in commands, not the searching ones, and says the key is missing', () => {
     const h = fakeHost({ disabled: false });
     startPlugin(h.host);
     expect([...h.commands.keys()]).toEqual(BUILT_IN);
@@ -309,11 +309,11 @@ describe('running a command', () => {
     expect(writes).toEqual([]);
   });
 
-  it('refuses a rewrite of a block with no text of its own', async () => {
+  it.each(['Polish', 'Spellcheck'])('refuses /%s on a block with no text of its own', async (name) => {
     const { ops, writes } = fakeOps({ context: 'Root\n\t- child', texts: ['#[[🤖]]'] });
     const h = fakeHost(CONFIGURED, { ops });
     startPlugin(h.host);
-    await h.run('Polish');
+    await h.run(name);
     expect(h.toasts[0]).toMatch(/^warning: This block has no text of its own to rewrite/);
     expect(writes).toEqual([]);
   });
@@ -329,6 +329,27 @@ describe('running a command', () => {
     expect(a.seen[0].messages[1].content).toContain('Hello');
     expect(writes).toEqual(['property summarize=Short.| #[[🤖]]']);
     expect(h.toasts).toEqual(['info: Summarize…']);
+    expect(h.open.size).toBe(0);
+  });
+
+  it.each([
+    ['Please chek the adress.', 'Please check the address.'],
+    ['Pleese chek\n\t- the adress', 'Please check\n\t- the address'],
+    ['Already correct.', 'Already correct.'],
+  ])('runs /Spellcheck in place without a search key: %s', async (source, corrected) => {
+    const { ops, writes } = fakeOps({ context: source, texts: [source] });
+    const a = answering(corrected);
+    const h = fakeHost({ ...CONFIGURED, tag: '' }, { ops, chat: a.chat });
+    startPlugin(h.host);
+    expect(h.commands.has('Spellcheck')).toBe(true);
+    await h.run('Spellcheck');
+    expect(a.seen).toHaveLength(1);
+    expect(a.seen[0].messages).toEqual([
+      { role: 'system', content: Spellcheck.system },
+      { role: 'user', content: Spellcheck.prompt.replace('{content}', source) },
+    ]);
+    expect(writes).toEqual([`rewrite ${corrected}|`]);
+    expect(h.toasts).toEqual(['info: Spellcheck…']);
     expect(h.open.size).toBe(0);
   });
 

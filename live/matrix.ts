@@ -90,7 +90,7 @@ export type Property =
   | 'no-marks' // /Ask Online prose carries no ❓✅❌
   | 'no-echo'; // /Ask Online does not repeat the question
 
-const REWRITES = new Set(['Polish', 'Shorten', 'Expand', 'Tone: Friendly', 'Tone: Confident', 'Tone: Casual', 'Tone: Professional']);
+const REWRITES = new Set(['Polish', 'Spellcheck', 'Shorten', 'Expand', 'Tone: Friendly', 'Tone: Confident', 'Tone: Casual', 'Tone: Professional']);
 
 /** Which properties a cell asserts. A command the grid does not know (a custom prompt) gets the generic two. */
 export function propertiesFor(command: IPrompt, kind: Kind): Property[] {

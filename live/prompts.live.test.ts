@@ -74,7 +74,7 @@ interface Config {
   writeBaseline: boolean;
 }
 
-const QUICK_COMMANDS = ['Ask AI', 'Summarize', 'Polish', 'Explain', 'Fact Check', 'Tone: Professional', 'Ask Online', 'Verify Online'];
+const QUICK_COMMANDS = ['Ask AI', 'Summarize', 'Polish', 'Spellcheck', 'Explain', 'Fact Check', 'Tone: Professional', 'Ask Online', 'Verify Online'];
 
 function list<T extends string>(value: string | undefined, all: readonly T[]): T[] | undefined {
   if (!value) return undefined;

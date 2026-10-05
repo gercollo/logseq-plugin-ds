@@ -73,11 +73,12 @@ treat the first few runs as a trial and keep an eye on your block properties.
 
 ## Rewriting a block that has children
 
-`/Polish`, `/Shorten`, `/Expand` and the `/Tone:` commands rewrite the block **and everything
+`/Polish`, `/Spellcheck`, `/Shorten`, `/Expand` and the `/Tone:` commands rewrite the block **and everything
 under it**. The model gets the subtree as an outline and returns a rewritten one; the plugin
 applies it back over the blocks that already exist, updating each in place so its identity —
 and therefore any `((reference))` to it, and its properties — survives. The rewrite may merge
-or split lines: extra lines become new blocks, and blocks left over are removed.
+or split lines: extra lines become new blocks, and blocks left over are removed. `/Spellcheck`
+instructs the model to keep every point and its line breaks, changing only spelling and obvious typos.
 
 Two things are never removed. A block something links to: on a file graph that is a block
 carrying `id::`, which Logseq writes only once a reference exists; on a DB graph the plugin
