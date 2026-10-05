@@ -24,6 +24,17 @@ export function buildUserMessage(prompt: string, content: string, formatInstruct
   return message;
 }
 
+/** Remove a model's added triple-quote wrapper without stripping source quotation boundaries. */
+export function unwrapRewriteQuotes(response: string, source: string): string {
+  const original = source.trim();
+  if (original.startsWith('"""') || original.endsWith('"""')) {
+    return response;
+  }
+  // Only complete, standalone delimiter lines qualify. Inline quotes and partial replies stay.
+  const wrapped = /^"""[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*"""$/.exec(response.trim());
+  return wrapped ? wrapped[1] : response;
+}
+
 export interface ResolvedPrompts {
   prompts: IPrompt[];
   /** Human-readable reasons for each custom prompt that was ignored. */

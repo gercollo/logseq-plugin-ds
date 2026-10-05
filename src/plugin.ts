@@ -12,8 +12,8 @@ import { propertyKey, stripTag, tagSuffix, withTag } from './block';
 import { BlockOps } from './graph';
 import { chat, ChatMessage, ChatOptions, ChatResult } from './chat';
 import { getOutputParser, OutputParser } from './parsers';
-import { buildUserMessage, DEFAULT_SYSTEM, resolvePrompts } from './prompt';
-import { presetPrompts } from './prompts';
+import { buildUserMessage, DEFAULT_SYSTEM, resolvePrompts, unwrapRewriteQuotes } from './prompt';
+import { Spellcheck, presetPrompts } from './prompts';
 import { IPrompt, PromptOutputType } from './prompts/type';
 import { NO_SEARCH_KEY_MESSAGE, search } from './search';
 import { ISettings, SETTING_DEFAULTS, readSettings } from './settings';
@@ -194,7 +194,9 @@ export async function runPrompt(definition: IPrompt, uuid: string, host: PluginH
     case PromptOutputType.replace: {
       // Rewrites cover the block and everything under it, so the reply is an
       // outline applied over the existing blocks rather than one string.
-      const kept = await ops.rewriteSubtree(uuid, response, tag);
+      // A custom override can intentionally request quotes, so only the built-in is normalized.
+      const outline = definition === Spellcheck ? unwrapRewriteQuotes(response, content) : response;
+      const kept = await ops.rewriteSubtree(uuid, outline, tag);
       if (kept > 0) {
         await ui.showMsg(
           `${kept} block(s) were left as they were: something links to them, or they hold ` +

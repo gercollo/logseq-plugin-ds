@@ -139,10 +139,10 @@ Leave Markdown markup, inline code, URLs, email addresses, file paths, hashtags,
 like [[...]] and block references like ((...)) exactly as they are. Fenced code must remain unchanged.
 Keep proper names and specialist terms unless a spelling correction is unambiguous.
 When no correction is needed, return the original text exactly; never say "no errors found".
-Return only the corrected text:
-"""
+Preserve quotation marks that belong to the source. Do not add surrounding quotation marks,
+triple-quote delimiter lines or a code fence around your reply.
+The source text starts on the next line; return only that text with any spelling corrections:
 {content}
-"""
 ```
 
 ## /Shorten
