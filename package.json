@@ -1,6 +1,7 @@
 {
-  "name": "logseq-plugin-deepseek-assistant",
+  "name": "logseq-plugin-openai-assistant",
   "version": "1.2.1",
+  "packageManager": "pnpm@9.15.9",
   "main": "dist/index.html",
   "scripts": {
     "dev": "vite",
@@ -33,12 +34,12 @@
     "vitest": "0.34.6"
   },
   "logseq": {
-    "id": "logseq-plugin-deepseek-assistant",
-    "title": "DeepSeek Assistant",
+    "id": "logseq-plugin-openai-assistant",
+    "title": "AI Assistant",
     "icon": "./logo.svg"
   },
-  "description": "Run DeepSeek models from Logseq slash commands: summarize, polish, rewrite, explain, brainstorm and fact-check a block without leaving your notes.",
-  "author": "victos",
-  "repo": "victos/logseq-plugin-ds",
+  "description": "Use any OpenAI-compatible Chat Completions endpoint from Logseq: summarize, rewrite, explain, brainstorm and search the web.",
+  "author": "gercollo",
+  "repo": "gercollo/logseq-plugin-ds",
   "effect": true
 }

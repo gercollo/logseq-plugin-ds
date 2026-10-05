@@ -1,18 +1,17 @@
-# Logseq DeepSeek Assistant
+# Logseq AI Assistant
 
-在 Logseq 的块里敲一条斜杠命令，就能调用 DeepSeek。 [English](./readme.md) | **中文**
+在 Logseq 的块里敲一条斜杠命令，就能调用任何兼容 OpenAI Chat Completions 的接口。 [English](./readme.md) | **中文**
 
-在任意块里输入 `/Polish`，DeepSeek 就会把它改写 —— **连同它下面嵌套的所有要点**，逐个就地更新。
+在任意块里输入 `/Polish`，模型就会把它改写 —— **连同它下面嵌套的所有要点**，逐个就地更新。
 不用切窗口，不用复制粘贴，结果直接落进你的笔记。
 
 ![一条命令改写整块及其子块](./docs/demo.gif)
 
-本项目是 [ahonn/logseq-plugin-ai-assistant](https://github.com/ahonn/logseq-plugin-ai-assistant)（MIT）的 DeepSeek 移植版。
+本项目基于 [victos/logseq-plugin-ds](https://github.com/victos/logseq-plugin-ds)（MIT），支持自定义接口、模型、可选 API Key 和 HTTP 请求头。
 
 ## 快速上手
 
-**1. 拿到 API Key** —— 在 [platform.deepseek.com](https://platform.deepseek.com/api_keys)
-注册并创建一个 Key。DeepSeek 是预付费的，记得充一点余额。
+**1. 选择接口和模型** —— 使用托管服务或启动本地兼容服务器。需要认证的服务请先获取 API Key。
 
 **2. 安装插件**
 
@@ -24,7 +23,7 @@ pnpm install && pnpm build
 
 再到插件页面选择「加载未打包的插件」（Load unpacked plugin），选中本文件夹。
 
-**3. 把 Key 填进插件设置**。这是唯一必填项。
+**3. 设置 API Base URL、Model 和 API Key**。本地服务器不需要认证时可以把 Key 留空。
 
 **4. 试一下** —— 光标放在任意块里，输入 `/Summarize`。
 
@@ -98,77 +97,24 @@ Logseq 的元数据（`id::`、`collapsed::`，以及你自己写的 `key:: valu
 
 ## 设置项
 
-| 设置 | 默认值 | 说明 |
+| 设置 | 默认值 | 用途 |
 | --- | --- | --- |
-| **API Key** | *(空)* | **必填**，你的 DeepSeek Key |
-| **API Base URL** | `https://api.deepseek.com/v1` | 只有走代理或换用其他 OpenAI 兼容接口时才需要改 |
-| **Model** | `deepseek-chat` | 见下文。自定义命令可以单独覆盖 |
-| **Temperature** | `0.3` | 回答贴合原文的程度。改写类任务宜低；想让 Brainstorm 或 Ask AI 放开一些可以调到 `1.3` 左右 |
-| **Tag** | `[[🤖]]` | 给 AI 产出打的标签。填的时候**不要**带 `#`；留空则不打标签 |
-| **Web Search API Key** | *(空)* | 可选。[Tavily](https://tavily.com) 的 key，用于启用 `/Ask Online`、`/Verify Online` 以及任何带 `"search": true` 的自定义命令 |
-| **Custom Prompts** | 关闭 | 自定义命令，见[自定义命令](./docs/custom-prompts.zh-CN.md) |
+| API Key | 空 | Bearer 认证密钥；不需要认证时留空 |
+| API Base URL | `https://api.openai.com/v1` | 基础地址或完整的 `/chat/completions` 地址，支持 HTTP、HTTPS 和查询参数 |
+| Model | `gpt-4o-mini` | 接口支持的模型或部署名称 |
+| Temperature | `0.3` | 支持采样参数的模型使用的温度 |
+| Send Temperature | 开 | 关闭后不发送温度；已知推理模型会自动省略 |
+| Extra HTTP Headers | `{}` | 自定义请求头 JSON 对象，值必须是字符串，例如 `{"api-key":"你的密钥"}` |
+| Tag | `[[🤖]]` | AI 输出标签；留空关闭 |
+| Web Search API Key | 空 | Tavily 密钥；联网命令还需要模型支持函数调用 |
+| Custom Prompts | 关 | 自定义命令 |
 
-前五项改完即生效，下一次执行命令时就会用新值，不需要重载插件。某一项被清空 —— 哪怕只剩几个空格 ——
-就算没填，会退回默认值。Web Search API Key 则不同：它决定联网命令是否注册，所以填入或清空
-之后要重载插件 —— 命令集合发生变化时插件会弹一次通知提醒。
+接口设置立即生效。搜索密钥或命令名称变化后需要重新加载插件。
+本地 Ollama 可使用 `http://localhost:11434/v1`，LM Studio 可使用 `http://localhost:1234/v1`；模型名称填写已安装或加载的模型。
+DeepSeek 仍可使用 `https://api.deepseek.com/v1` 和其支持的模型。
 
-API Key 还没填的时候，插件加载时会提示一次，免得刚装上的人对着失败的命令猜原因。
-
-Temperature 这一栏只要你改动过，Logseq 就会把它存成文本（`"0.3"` 而不是 `0.3`），插件两种都能读。
-早先的版本读不了文本形式，于是只要这一栏被碰过，所有命令就都悄悄按 DeepSeek 自己的默认值 `1.0` 在跑。
-
-默认值的变化不会影响已有安装：Logseq 会沿用已经保存的设置值。如果你是在默认值改成 `0.3` 之前
-装的插件，Temperature 仍然是 `1.0`，想用新默认值需要自己改一下。
-
-### 该用哪个模型
-
-- **`deepseek-chat`** —— 快且便宜。总结、改写、换语气这类日常任务用它就够了。
-- **`deepseek-reasoner`** —— 回答前会一步步推理，适合分析和难题，明显更慢。
-  它**不是更贵的模型**：两个名字路由到同一个模型、单价相同，只是它的思考内容按输出计费，
-  所以同一个问题问它比问 `deepseek-chat` 花得多。思考过程不会写进块里；跑 `/Verify Online` 时，
-  每轮搜索之间会按 API 的要求把这些推理回传给模型，答案出来后就丢弃。Temperature 不会发给它。
-
-  它在 live 套件里测过——挑的是最容易让思考型模型出问题的格子：`summarize::` 属性的单行约束、
-  改写时必须存活的代码块、容易引来挑刺的正确陈述，以及中德文输入下的语言跟随。24 格 × 2 采样，
-  156/156 项检查通过。它的联网路径只验过寥寥几次。
-
-DeepSeek 的 API 现在在自己的报错里把模型叫做 `deepseek-flash` 和 `deepseek-v4-pro`；`deepseek-chat`
-和 `deepseek-reasoner` 仍然可用，会映射到前者。Model 一栏两种写法都行。填了 DeepSeek 不认识的名字，
-会报 `DeepSeek does not know the model "…"`，并列出它认识的那些。
-
-## 出问题的时候
-
-所有失败都会以 Logseq 通知的形式弹出来。常见的几种：
-
-| 提示 | 怎么办 |
-| --- | --- |
-| `DeepSeek Assistant: no API key set yet. …` | 插件加载时发现没填 Key，只提示这一次。把 Key 填进设置 |
-| `No DeepSeek API key configured. Set it in the plugin settings.` | 把 Key 填进设置 |
-| `The API Base URL must start with https:// — it is "…".` | API Base URL 没写协议头。默认值是 `https://api.deepseek.com/v1` |
-| `Nothing answers at … (404). Check the API Base URL setting …` | 这个地址下什么都没有，多半是路径打错了。把 API Base URL 改回默认值 |
-| `DeepSeek request failed (…): … answered with a web page, not an API reply.` | 地址指向的是网站而不是 API —— 比如把 `api.deepseek.com` 写成了 `platform.deepseek.com`。把 API Base URL 改回默认值 |
-| `DeepSeek does not know the model "…" (400): …` | Model 一栏（或某条自定义命令的 `model`）填了 DeepSeek 没有的模型，提示里会列出它有的 |
-| `Invalid DeepSeek API key (401): …` | 重新把 Key 复制到设置里 |
-| `DeepSeek account has insufficient balance (402): …` | 去 platform.deepseek.com 充值 |
-| `DeepSeek rate limit reached (429): …` | 等一会儿再试 |
-| `Could not reach …` | 检查网络和 API Base URL |
-| `DeepSeek did not answer within 300 s.` | 重试。如果用 `deepseek-reasoner` 时反复出现，换成 `deepseek-chat` 或者把块拆小 |
-| `DeepSeek stopped at its output limit — the answer may be cut off.` | 答案已经写入，但可能被截断了。让它写短一点 |
-| `The block is empty — nothing to send to DeepSeek.` | 这个块（连同子块）去掉属性之后没有正文 |
-| `The block was deleted while DeepSeek was answering.` | 答案已被丢弃。在新的块上再执行一次命令 |
-| `This block has no text of its own to rewrite. Run the command on a block with text, or on one of the children.` | 只在 `/Polish`、`/Shorten`、`/Expand`、`/Tone:` 和 `output` 为 `replace` 的自定义命令出现：这个块是空的（或只有标签）但有子块。从这里改写会让每个子块错位一格，所以什么都没发出去 |
-| `DeepSeek returned nothing to insert.` | 回复里没有可用的行 —— 用 `/Fact Check` 时，它写的每一行都是在说某句话没问题，这类行会被丢掉。再跑一次，或者把块拆小 |
-| `This Logseq version cannot set block properties on a DB graph. Update Logseq, or change the prompt’s "output" away from "property".` | 只在 DB 图上出现：这个版本的 Logseq 没有 `upsertBlockProperty`。升级 Logseq，或者给这条命令换一种 `output` |
-| `Could not write the "…" property on this DB graph: …` | 只在 DB 图上出现：属性没能定义或写入，提示里会说明原因。先在 Logseq 里创建这个属性，或者把这条命令的 `output` 改成 `insert` |
-| `DeepSeek kept searching without answering (4 rounds). Try a shorter block.` | 只在联网命令（`/Ask Online`、`/Verify Online`、带 `search` 的自定义命令）出现：模型搜了四轮还想接着搜。把块拆小，每次少放几条说法或问题 |
-| `No Tavily API key configured. Set it in the plugin settings.` | 某条联网命令是在配置了搜索 key 时注册的，而 key 后来被清空（或只剩空格）了。重新填上，或者重载插件让这条命令消失 |
-| `Invalid Tavily API key (401): …` | 重新把 Tavily 的 key 复制到设置里 |
-| `Tavily rate limit or monthly quota reached (429): …` | 这个月的搜索额度用完了。等下月重置，或者升级套餐 |
-| `Tavily plan limit reached (432): …` | 当前 Tavily 套餐不允许这次请求，到 Tavily 控制台看看 |
-| `DeepSeek Assistant ignored N custom prompt(s): …` | 有自定义命令配置写坏了，或者整个 `customPrompts` 设置项形状不对，提示里会说明是哪里 |
-| `Available commands changed. Reload the plugin to update the slash menu.` | 你新增、重命名或删除了自定义命令，或者填入 / 清空了 Web Search API Key。每次这类变化只提示一次 |
-
-还是不行？按 `Ctrl+Shift+I` 打开 Logseq 开发者控制台，完整的错误会打印在那里。
+此版本使用独立插件 ID `logseq-plugin-openai-assistant`。从旧版迁移时复制设置，并关闭旧版以免重复注册命令。
+详细接口示例、兼容范围和故障排查见 [英文说明](./readme.md#settings)。
 
 ## 更多
 

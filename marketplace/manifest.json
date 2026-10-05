@@ -1,8 +1,8 @@
 {
-  "title": "DeepSeek Assistant",
-  "description": "Run DeepSeek models from Logseq slash commands: summarize, polish, rewrite, explain, brainstorm and fact-check a block without leaving your notes.",
-  "author": "victos",
-  "repo": "victos/logseq-plugin-ds",
+  "title": "AI Assistant",
+  "description": "Use any OpenAI-compatible Chat Completions endpoint from Logseq.",
+  "author": "gercollo",
+  "repo": "gercollo/logseq-plugin-ds",
   "icon": "./logo.svg",
   "effect": true,
   "supportsDB": true

@@ -3,9 +3,9 @@
  * settings file or a key cleared mid-session does to the user, and that every
  * failure ends as a notification that says what to change.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BlockOps } from '../src/graph';
-import { ChatMessage, ChatOptions, ChatResult } from '../src/deepseek';
+import { ChatMessage, ChatOptions, ChatResult } from '../src/chat';
 import {
   COMMANDS_CHANGED,
   NO_API_KEY_AT_START,
@@ -19,6 +19,10 @@ import { PromptOutputType } from '../src/prompts/type';
 import { NO_SEARCH_KEY_MESSAGE } from '../src/search';
 import { readSettings } from '../src/settings';
 import { getOutputParser } from '../src/parsers';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const BUILT_IN = presetPrompts.filter((p) => !p.requiresSearch).map((p) => p.name);
 
@@ -123,12 +127,13 @@ describe('a fresh install with nothing configured', () => {
     expect(h.toasts).toEqual([`warning: ${NO_API_KEY_AT_START}`]);
   });
 
-  it('turns a command into "No DeepSeek API key configured", writes nothing and leaves no toast open', async () => {
+  it('reports authentication failures from the endpoint, writes nothing and leaves no toast open', async () => {
     const { ops, writes } = fakeOps();
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{"error":{"message":"missing key"}}', { status: 401 })));
     const h = fakeHost({}, { ops, chat: null });
     startPlugin(h.host);
     await h.run('Summarize');
-    expect(h.toasts.at(-1)).toBe('error: No DeepSeek API key configured. Set it in the plugin settings.');
+    expect(h.toasts.at(-1)).toBe('error: Invalid API key (401): missing key');
     expect(writes).toEqual([]);
     expect(h.open.size).toBe(0);
   });
@@ -137,6 +142,14 @@ describe('a fresh install with nothing configured', () => {
     const h = fakeHost(CONFIGURED);
     startPlugin(h.host);
     expect(h.toasts).toEqual([]);
+  });
+
+  it('does not warn about missing keys for local servers or custom authentication', () => {
+    for (const settings of [{ basePath: 'http://localhost:1234/v1' }, { extraHeaders: { 'api-key': 'key' } }]) {
+      const h = fakeHost(settings);
+      startPlugin(h.host);
+      expect(h.toasts).toEqual([]);
+    }
   });
 });
 
@@ -149,7 +162,7 @@ describe('a settings file edited by hand', () => {
 
   it('reads such a file as unset rather than crashing a command', () => {
     expect(readSettings({ apiKey: 123, tag: null, temperature: '0.7', customPrompts: 'x' })).toEqual({
-      apiKey: '', basePath: '', model: '', temperature: 0.7, searchApiKey: '', tag: '', customPrompts: 'x',
+      apiKey: '', basePath: '', model: '', temperature: 0.7, sendTemperature: true, extraHeaders: {}, searchApiKey: '', tag: '', customPrompts: 'x',
     });
     expect(readSettings(null).apiKey).toBe('');
   });
@@ -227,7 +240,7 @@ describe('the search key', () => {
     startPlugin(h.host);
     expect(h.commands.has('News')).toBe(false);
     expect(h.toasts).toHaveLength(1);
-    expect(h.toasts[0]).toMatch(/^warning: DeepSeek Assistant ignored 1 custom prompt/);
+    expect(h.toasts[0]).toMatch(/^warning: AI Assistant ignored 1 custom prompt/);
     expect(h.toasts[0]).toMatch(/"News" asks for "search" but no Web Search API Key is set/);
   });
 
@@ -292,7 +305,7 @@ describe('running a command', () => {
     const h = fakeHost(CONFIGURED, { ops });
     startPlugin(h.host);
     await h.run('Summarize');
-    expect(h.toasts).toEqual(['warning: The block is empty — nothing to send to DeepSeek.']);
+    expect(h.toasts).toEqual(['warning: The block is empty — nothing to send to the model.']);
     expect(writes).toEqual([]);
   });
 
@@ -312,7 +325,7 @@ describe('running a command', () => {
     startPlugin(h.host);
     await h.run('Summarize');
     expect(a.seen).toHaveLength(1);
-    expect(a.seen[0].options).toEqual({ apiKey: 'sk-x', basePath: 'https://api.deepseek.com/v1', model: 'deepseek-chat', temperature: 1.3 });
+    expect(a.seen[0].options).toEqual({ apiKey: 'sk-x', basePath: 'https://api.deepseek.com/v1', model: 'gpt-4o-mini', temperature: 1.3, extraHeaders: {} });
     expect(a.seen[0].messages[1].content).toContain('Hello');
     expect(writes).toEqual(['property summarize=Short.| #[[🤖]]']);
     expect(h.toasts).toEqual(['info: Summarize…']);
@@ -320,10 +333,10 @@ describe('running a command', () => {
   });
 
   it('closes the waiting toast and shows the error when the model call fails', async () => {
-    const h = fakeHost(CONFIGURED, { chat: async () => { throw new Error('Invalid DeepSeek API key (401): nope'); } });
+    const h = fakeHost(CONFIGURED, { chat: async () => { throw new Error('Invalid API key (401): nope'); } });
     startPlugin(h.host);
     await h.run('Ask AI');
-    expect(h.toasts).toEqual(['info: Ask AI…', 'error: Invalid DeepSeek API key (401): nope']);
+    expect(h.toasts).toEqual(['info: Ask AI…', 'error: Invalid API key (401): nope']);
     expect(h.open.size).toBe(0);
   });
 
@@ -332,7 +345,7 @@ describe('running a command', () => {
     const h = fakeHost(CONFIGURED, { ops, chat: answering('Answer').chat });
     startPlugin(h.host);
     await h.run('Ask AI');
-    expect(h.toasts.at(-1)).toBe('warning: The block was deleted while DeepSeek was answering.');
+    expect(h.toasts.at(-1)).toBe('warning: The block was deleted while the model was answering.');
     expect(writes).toEqual([]);
   });
 
@@ -348,7 +361,7 @@ describe('running a command', () => {
     startPlugin(g.host);
     await g.run('Fact Check');
     expect(none.writes).toEqual([]);
-    expect(g.toasts.at(-1)).toBe('warning: DeepSeek returned nothing to insert.');
+    expect(g.toasts.at(-1)).toBe('warning: The model returned nothing to insert.');
   });
 
   it('rewrites the subtree and reports blocks that had to be kept', async () => {
@@ -366,7 +379,7 @@ describe('running a command', () => {
     startPlugin(h.host);
     await h.run('Ask AI');
     expect(writes).toEqual(['insert Partial']);
-    expect(h.toasts.at(-1)).toBe('warning: DeepSeek stopped at its output limit — the answer may be cut off.');
+    expect(h.toasts.at(-1)).toBe('warning: The model stopped at its output limit — the answer may be cut off.');
   });
 });
 
@@ -427,10 +440,18 @@ describe('custom prompts', () => {
 });
 
 describe('chatOptionsFor / responseItems', () => {
+  it('applies changed endpoints, headers and temperature opt-out to the next command', async () => {
+    const a = answering('Answer');
+    const h = fakeHost(CONFIGURED, { chat: a.chat });
+    startPlugin(h.host);
+    h.change({ basePath: 'http://localhost:1234/v1', model: 'local', temperature: '0.7', sendTemperature: false, extraHeaders: { 'api-key': 'custom' } });
+    await h.run('Ask AI');
+    expect(a.seen[0].options).toEqual({ apiKey: '', basePath: 'http://localhost:1234/v1', model: 'local', temperature: undefined, extraHeaders: { 'api-key': 'custom' } });
+  });
   it('fills the defaults and lets the prompt override the model', () => {
     const s = readSettings({});
     expect(chatOptionsFor(s, { name: 'x', prompt: 'p', output: PromptOutputType.insert })).toEqual({
-      apiKey: '', basePath: 'https://api.deepseek.com/v1', model: 'deepseek-chat', temperature: undefined,
+      apiKey: '', basePath: 'https://api.openai.com/v1', model: 'gpt-4o-mini', temperature: undefined, extraHeaders: {},
     });
     expect(chatOptionsFor(readSettings({ model: 'a' }), { name: 'x', prompt: 'p', output: PromptOutputType.insert, model: 'b' }).model).toBe('b');
   });

@@ -5,7 +5,7 @@
 ## Building and testing
 
 ```sh
-pnpm test       # 349 tests (vitest), one of them a property-based harness over the block-writing pipeline
+pnpm test       # unit and HTTP integration tests (vitest), one of them a property-based harness over the block-writing pipeline
 pnpm lint       # eslint over src/, test/ and live/
 pnpm build      # tsc + vite → dist/
 pnpm test:live  # the prompts against the live API — costs money, needs keys; see below
@@ -24,7 +24,7 @@ Source layout:
 | `src/settings.ts` | The settings schema and its defaults |
 | `src/search.ts` | The web search client (Tavily) |
 | `src/verify.ts` | The search loop: offer the tool, serve the calls, then answer |
-| `src/deepseek.ts` | The API client |
+| `src/chat.ts` | The API client |
 | `src/parsers.ts` | Turning a reply into a list or named fields |
 | `src/prompts/` | The built-in prompts, one per file; `index.ts` sets the order |
 | `live/` | The behavioural suite for the prompts (below). Not part of `pnpm test` |
@@ -48,7 +48,7 @@ LIVE_BASELINE=write pnpm test:live               # record the current behaviour 
 ```
 
 It runs the real prompts — assembled by the same `buildMessages` the plugin uses, parsed by the
-same parsers — against the live DeepSeek API, and Tavily for the searching commands, over a grid
+same parsers — against the configured OpenAI-compatible API, and Tavily for the searching commands, over a grid
 of **command × input kind × input language**. The kinds are a question, a statement whose claims
 are all true, a statement with one true and one false claim, an opinion, a multi-line block with
 sub-points, a block with a code fence, and a near-empty "ok, noted."; the languages are English,
@@ -69,12 +69,18 @@ up, with the reply that failed. A cell fails when a property passes fewer than 6
 the counts, not only the verdict. After a deliberate prompt change that the run shows to be better,
 re-record with `LIVE_BASELINE=write` and commit `live/baseline.json` with the prompt.
 
-Keys come from `DEEPSEEK_API_KEY` / `TAVILY_API_KEY` in the environment, or failing that from the
-plugin's own settings file (`~/.logseq/settings/logseq-plugin-deepseek-assistant.json`;
+Keys come from `OPENAI_API_KEY` / `TAVILY_API_KEY` in the environment, or failing that from the
+plugin's own settings file (`~/.logseq/settings/logseq-plugin-openai-assistant.json`;
 `LIVE_SETTINGS` points elsewhere). Never write a key into the repository. Without a Tavily key the
 searching commands are simply not in the grid, as in the plugin.
 
-What it costs, measured with `deepseek-chat`:
+Set `OPENAI_BASE_URL` and `OPENAI_MODEL` for another provider or a local server. Local servers
+without authentication can leave the key empty. `DEEPSEEK_API_KEY` and `DEEPSEEK_BASE_PATH` remain
+accepted as legacy aliases. The suite uses Extra HTTP Headers and Send Temperature from the settings file.
+The checked-in baseline and the following cost measurements were recorded upstream using DeepSeek;
+they are historical, not measurements of this fork against every provider.
+
+What it cost upstream, measured with `deepseek-chat`:
 
 | Run | Cells | Calls | Time | Notes |
 | --- | --- | --- | --- | --- |
@@ -95,7 +101,7 @@ than about eight concurrent searches.
 
 ## What changed from the original
 
-Besides swapping OpenAI for DeepSeek, this port fixes several bugs inherited from upstream:
+The original DeepSeek port fixed several bugs inherited from the AI Assistant upstream:
 
 - **Block properties were being corrupted.** The tag was appended to the raw block content, so
   a block carrying `collapsed:: true` or `id:: …` ended up with `collapsed:: true #[[🤖]]`. The

@@ -18,7 +18,7 @@ export interface ChatMessage {
   tool_call_id?: string;
 }
 
-/** A tool offered to the model, in the OpenAI-compatible shape DeepSeek accepts. */
+/** A tool offered to the model, in the OpenAI-compatible Chat Completions shape. */
 export interface ToolSpec {
   type: 'function';
   function: {
@@ -29,10 +29,13 @@ export interface ToolSpec {
 }
 
 export interface ChatOptions {
+  /** Leave empty for servers that do not require authentication. */
   apiKey: string;
   basePath: string;
   model: string;
   temperature?: number;
+  /** Additional HTTP headers, including provider-specific authentication. */
+  extraHeaders?: unknown;
   /** Abort the request after this long. Defaults to {@link DEFAULT_TIMEOUT_MS}. */
   timeoutMs?: number;
   signal?: AbortSignal;
@@ -71,18 +74,55 @@ interface ChatCompletionResponse {
 export const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 
 /** Quoted in error messages; the settings schema declares the same value as its default. */
-export const DEFAULT_BASE_PATH = 'https://api.deepseek.com/v1';
+export const DEFAULT_BASE_PATH = 'https://api.openai.com/v1';
 
-// deepseek-reasoner ignores (and historically rejected) the sampling parameters,
-// so they are only sent for the chat models.
+// Omit sampling parameters conservatively for known reasoning families.
+// Deployment aliases and other model families can opt out through settings.
 export function isReasoner(model: string) {
-  return /reason/i.test(model);
+  const name = model.split('/').pop() ?? model;
+  return /^(?:deepseek-reasoner(?:-|$)|o[134](?:-|$)|gpt-5(?:[.-]|$))/i.test(name);
 }
 
 /** `basePath` may be `https://host`, `https://host/v1`, or the full completions URL. */
 export function endpoint(basePath: string) {
-  const base = basePath.trim().replace(/\/+$/, '');
-  return /\/chat\/completions$/.test(base) ? base : `${base}/chat/completions`;
+  let url: URL;
+  try {
+    url = new URL(basePath.trim());
+  } catch {
+    throw new Error('The API Base URL must be a valid http:// or https:// URL.');
+  }
+  if (!/^https?:$/.test(url.protocol)) {
+    throw new Error('The API Base URL must use http:// or https://.');
+  }
+  const path = url.pathname.replace(/\/+$/, '');
+  url.pathname = /\/chat\/completions$/.test(path) ? path : `${path}/chat/completions`;
+  url.hash = '';
+  return url.toString();
+}
+
+/** Custom names override defaults case-insensitively; invalid settings fail before fetch. */
+export function requestHeaders(apiKey: string, extraHeaders: unknown = {}): Record<string, string> {
+  if (typeof extraHeaders !== 'object' || extraHeaders === null || Array.isArray(extraHeaders)) {
+    throw new Error('Extra HTTP Headers must be an object with string values.');
+  }
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (apiKey.trim()) {
+    headers.Authorization = `Bearer ${apiKey.trim()}`;
+  }
+  for (const [name, value] of Object.entries(extraHeaders)) {
+    if (typeof value !== 'string') {
+      throw new Error(`Extra HTTP Headers: "${name}" must have a string value.`);
+    }
+    try {
+      new Headers({ [name]: value });
+    } catch {
+      throw new Error(`Extra HTTP Headers: "${name}" is not a valid HTTP header.`);
+    }
+    const previous = Object.keys(headers).find((key) => key.toLowerCase() === name.toLowerCase());
+    if (previous) delete headers[previous];
+    headers[name] = value;
+  }
+  return headers;
 }
 
 /** Where the error came from, for a message that says what to change. */
@@ -97,7 +137,7 @@ const BASE_URL_HINT = `Check the API Base URL setting; the default is ${DEFAULT_
 /**
  * An HTTP failure as a sentence the user can act on. The status decides the
  * first half; the body's `error.message`, or failing that the body itself,
- * the second. Two answers are not from DeepSeek's API at all — an HTML error
+ * the second. Two answers may indicate an endpoint configuration problem — an HTML error
  * page, and a 404 — so there the base URL is the setting to look at, and an
  * HTML page is not worth quoting.
  */
@@ -108,9 +148,9 @@ export function describeHttpError(status: number, body: string, context: ErrorCo
   } catch {
     // not JSON
   }
-  // A gateway's own 5xx page is DeepSeek being down, not a wrong URL.
+  // A gateway's own 5xx page is the service being down, not a wrong URL.
   if (message === undefined && status < 500 && HTML_BODY.test(body)) {
-    return `DeepSeek request failed (${status}): ${context.url ?? 'the server'} answered with a web page, not an API reply. ${BASE_URL_HINT}`;
+    return `API request failed (${status}): ${context.url ?? 'the server'} answered with a web page, not an API reply. ${BASE_URL_HINT}`;
   }
   const detail = (message ?? body.slice(0, 300)).trim();
   const sentence = detail.replace(/\.$/, '');
@@ -119,26 +159,26 @@ export function describeHttpError(status: number, body: string, context: ErrorCo
     case 400:
       if (/\bmodel\b/i.test(detail)) {
         const which = context.model ? ` "${context.model}"` : '';
-        return `DeepSeek does not know the model${which} (400): ${sentence}. Check the Model setting.`;
+        return `The API rejected the model or its parameters${which} (400): ${sentence}. Check the Model and Temperature settings.`;
       }
-      return `DeepSeek rejected the request as malformed (400): ${detail}`;
+      return `The API rejected the request as malformed (400): ${detail}`;
     case 401:
-      return `Invalid DeepSeek API key (401): ${detail}`;
+      return `Invalid API key (401): ${detail}`;
     case 402:
-      return `DeepSeek account has insufficient balance (402): ${detail}`;
+      return `API account has insufficient balance (402): ${detail}`;
     case 404:
       return `Nothing answers at ${context.url ?? 'that URL'} (404)${sentence ? `: ${sentence}` : ''}. ${BASE_URL_HINT}`;
     case 422:
-      return `DeepSeek rejected the request parameters (422): ${detail}`;
+      return `The API rejected the request parameters (422): ${detail}`;
     case 429:
-      return `DeepSeek rate limit reached (429): ${detail}`;
+      return `API rate limit reached (429): ${detail}`;
     case 500:
     case 502:
     case 503:
     case 504:
-      return `DeepSeek is temporarily unavailable (${status}): ${detail}`;
+      return `The API is temporarily unavailable (${status}): ${detail}`;
     default:
-      return `DeepSeek request failed (${status}): ${detail}`;
+      return `API request failed (${status}): ${detail}`;
   }
 }
 
@@ -166,7 +206,7 @@ export function buildRequestBody(
 
 function extractContent(payload: ChatCompletionResponse): ChatResult {
   if (payload.error?.message) {
-    throw new Error(`DeepSeek returned an error: ${payload.error.message}`);
+    throw new Error(`The model returned an error: ${payload.error.message}`);
   }
 
   const choice = payload.choices?.[0];
@@ -177,9 +217,9 @@ function extractContent(payload: ChatCompletionResponse): ChatResult {
   // A turn that only asks for tools carries no text, and that is not an error.
   if (!content && !toolCalls) {
     if (choice?.finish_reason === 'length') {
-      throw new Error('DeepSeek hit the output length limit before producing an answer.');
+      throw new Error('The model hit the output length limit before producing an answer.');
     }
-    throw new Error('DeepSeek returned an empty response.');
+    throw new Error('The model returned an empty response.');
   }
 
   const reasoning = choice?.message?.reasoning_content;
@@ -213,9 +253,6 @@ export async function chat(messages: ChatMessage[], options: ChatOptions): Promi
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const doFetch = options.fetch ?? fetch;
 
-  if (!apiKey) {
-    throw new Error('No DeepSeek API key configured. Set it in the plugin settings.');
-  }
   if (!basePath) {
     throw new Error('No API Base URL configured. Set it in the plugin settings.');
   }
@@ -227,11 +264,12 @@ export async function chat(messages: ChatMessage[], options: ChatOptions): Promi
   // can change.
   if (!/^https?:\/\//i.test(basePath)) {
     throw new Error(
-      `The API Base URL must start with https:// — it is "${basePath}". ${BASE_URL_HINT}`,
+      `The API Base URL must start with http:// or https:// — it is "${basePath}". ${BASE_URL_HINT}`,
     );
   }
 
   const url = endpoint(basePath);
+  const headers = requestHeaders(apiKey ?? '', options.extraHeaders);
   const controller = new AbortController();
   let timedOut = false;
   const timer = setTimeout(() => {
@@ -249,10 +287,10 @@ export async function chat(messages: ChatMessage[], options: ChatOptions): Promi
 
   const explainAbort = () => {
     if (timedOut) {
-      return new Error(`DeepSeek did not answer within ${Math.round(timeoutMs / 1000)} s.`);
+      return new Error(`The model did not answer within ${Math.round(timeoutMs / 1000)} s.`);
     }
     if (controller.signal.aborted) {
-      return new Error('DeepSeek request was cancelled.');
+      return new Error('API request was cancelled.');
     }
     return undefined;
   };
@@ -263,10 +301,7 @@ export async function chat(messages: ChatMessage[], options: ChatOptions): Promi
     try {
       response = await doFetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
+        headers,
         body: JSON.stringify(buildRequestBody(
           messages, model, options.temperature, options.tools, options.toolChoice,
         )),
@@ -286,7 +321,7 @@ export async function chat(messages: ChatMessage[], options: ChatOptions): Promi
     try {
       text = await response.text();
     } catch (error) {
-      throw explainAbort() ?? new Error(`Reading the DeepSeek response failed: ${(error as Error).message}`);
+      throw explainAbort() ?? new Error(`Reading the API response failed: ${(error as Error).message}`);
     }
   } finally {
     clearTimeout(timer);
@@ -301,7 +336,7 @@ export async function chat(messages: ChatMessage[], options: ChatOptions): Promi
   try {
     payload = JSON.parse(text);
   } catch {
-    throw new Error(`DeepSeek returned a non-JSON response: ${text.slice(0, 300)}`);
+    throw new Error(`The model returned a non-JSON response: ${text.slice(0, 300)}`);
   }
 
   return extractContent(payload);

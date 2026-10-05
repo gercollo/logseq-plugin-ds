@@ -4,7 +4,7 @@
  * answers. Kept separate from `chat()` so the plain commands stay a single
  * round trip.
  */
-import { ChatMessage, ChatOptions, ChatResult, ToolCall, chat } from './deepseek';
+import { ChatMessage, ChatOptions, ChatResult, ToolCall, chat } from './chat';
 import { SearchResult, SearchUnavailableError, formatForModel } from './search';
 
 export const SEARCH_TOOL = {
@@ -137,7 +137,7 @@ export async function verifyWithSearch(
   }
 
   throw new Error(
-    `DeepSeek kept searching without answering (${maxHops} rounds). Try a shorter block.`,
+    `The model kept searching without answering (${maxHops} rounds). Try a shorter block.`,
   );
 }
 

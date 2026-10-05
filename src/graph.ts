@@ -232,7 +232,7 @@ export class DbGraphOps implements BlockOps {
       } catch (error) {
         // Already defined, or defined with a different schema — either is fine;
         // the write below is what decides whether this actually worked.
-        console.warn(`[DeepSeek Assistant] could not define property "${key}":`, error);
+        console.warn(`[AI Assistant] could not define property "${key}":`, error);
       }
     }
 
@@ -298,7 +298,7 @@ function parseReply(outline: string, rootText: string, tag: string): OutlineNode
   const wrapper = MARKDOWN_FENCE.test(replyFirst) && !MARKDOWN_FENCE.test(first);
   const rewritten = parseOutline(outline, { unwrapFence: !isFenceLine(first) || wrapper });
   if (!rewritten) {
-    throw new Error('DeepSeek returned nothing to write back.');
+    throw new Error('The model returned nothing to write back.');
   }
   return rewritten;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ChatMessage, ChatOptions, ChatResult } from '../src/deepseek';
+import { ChatMessage, ChatOptions, ChatResult } from '../src/chat';
 import { SearchResult, SearchUnavailableError } from '../src/search';
 import { ANSWER_NOW, MAX_SEARCH_HOPS, SEARCH_TOOL, verifyWithSearch } from '../src/verify';
 
@@ -30,7 +30,7 @@ function scriptedChat(replies: ChatResult[]) {
     if (!next) throw new Error('the model was asked more times than the script allows');
     return next;
   });
-  return { chat: chat as unknown as typeof import('../src/deepseek').chat, seen };
+  return { chat: chat as unknown as typeof import('../src/chat').chat, seen };
 }
 
 describe('verifyWithSearch', () => {

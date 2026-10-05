@@ -6,7 +6,7 @@ import {
   describeHttpError,
   endpoint,
   isReasoner,
-} from '../src/deepseek';
+} from '../src/chat';
 
 const MESSAGES: ChatMessage[] = [
   { role: 'system', content: 'sys' },
@@ -50,12 +50,23 @@ describe('endpoint', () => {
     ['https://api.deepseek.com', 'https://api.deepseek.com/chat/completions'],
     ['  https://proxy.local/openai/v1//  ', 'https://proxy.local/openai/v1/chat/completions'],
     ['https://proxy.local/v1/chat/completions', 'https://proxy.local/v1/chat/completions'],
+    ['http://localhost:1234/v1', 'http://localhost:1234/v1/chat/completions'],
+    ['http://localhost:11434/v1/', 'http://localhost:11434/v1/chat/completions'],
+    ['https://proxy.local/v1?api-version=2024-10-21', 'https://proxy.local/v1/chat/completions?api-version=2024-10-21'],
+    ['https://proxy.local/chat/completions/?api-version=2024-10-21#fragment', 'https://proxy.local/chat/completions?api-version=2024-10-21'],
   ])('%s -> %s', (input, expected) => {
     expect(endpoint(input)).toBe(expected);
   });
 });
 
 describe('isReasoner / buildRequestBody', () => {
+  it.each(['o1', 'o1-mini', 'o3', 'o3-mini', 'o4-mini', 'gpt-5', 'gpt-5-mini', 'gpt-5.2', 'openai/o3-mini', 'openai/gpt-5'])('omits temperature for %s', (model) => {
+    expect(buildRequestBody(MESSAGES, model, 0.3)).not.toHaveProperty('temperature');
+  });
+
+  it('does not assume arbitrary names containing reason reject temperature', () => {
+    expect(buildRequestBody(MESSAGES, 'my-reasoning-model', 0.3)).toHaveProperty('temperature', 0.3);
+  });
   it('sends temperature for chat models only', () => {
     expect(isReasoner('deepseek-reasoner')).toBe(true);
     expect(isReasoner('deepseek-chat')).toBe(false);
@@ -100,10 +111,10 @@ describe('isReasoner / buildRequestBody', () => {
 describe('describeHttpError', () => {
   it('uses the API error message when the body is JSON, else the raw body', () => {
     expect(describeHttpError(401, JSON.stringify({ error: { message: 'bad key' } }))).toBe(
-      'Invalid DeepSeek API key (401): bad key',
+      'Invalid API key (401): bad key',
     );
     expect(describeHttpError(502, '<html>Bad Gateway</html>')).toBe(
-      'DeepSeek is temporarily unavailable (502): <html>Bad Gateway</html>',
+      'The API is temporarily unavailable (502): <html>Bad Gateway</html>',
     );
   });
 
@@ -121,9 +132,41 @@ describe('describeHttpError', () => {
 });
 
 describe('chat', () => {
+  it('calls an unauthenticated local server without sending an Authorization header', async () => {
+    const { fetch, calls } = fakeFetch(ok('local answer'));
+    await chat(MESSAGES, { ...BASE, basePath: 'http://localhost:1234/v1', apiKey: '  ', model: 'local-model', fetch });
+    expect(calls[0].url).toBe('http://localhost:1234/v1/chat/completions');
+    expect(calls[0].init.headers).toEqual({ 'Content-Type': 'application/json' });
+    expect(JSON.parse(calls[0].init.body as string).model).toBe('local-model');
+  });
+
+  it('preserves a deployment URL and query while using provider-specific authentication', async () => {
+    const { fetch, calls } = fakeFetch(ok('answer'));
+    const url = 'https://example.openai.azure.com/openai/deployments/my-model/chat/completions?api-version=2024-10-21';
+    await chat(MESSAGES, { ...BASE, apiKey: '', basePath: url, model: 'my-model', extraHeaders: { 'api-key': 'azure-key' }, fetch });
+    expect(calls[0].url).toBe(url);
+    expect(calls[0].init.headers).toEqual({ 'Content-Type': 'application/json', 'api-key': 'azure-key' });
+  });
+
+  it('overrides headers case-insensitively without sending duplicate authorization', async () => {
+    const { fetch, calls } = fakeFetch(ok('answer'));
+    await chat(MESSAGES, { ...BASE, extraHeaders: { authorization: 'Basic custom', 'HTTP-Referer': 'https://example.com' }, fetch });
+    expect(calls[0].init.headers).toEqual({ 'Content-Type': 'application/json', authorization: 'Basic custom', 'HTTP-Referer': 'https://example.com' });
+  });
+
+  it.each(['not an object', [], { 'api-key': 123 }, { 'bad header': 'x' }, { 'api-key': 'a\nb' }])('rejects malformed headers before touching the network: %j', async (extraHeaders) => {
+    const { fetch, calls } = fakeFetch(ok('answer'));
+    await expect(chat(MESSAGES, { ...BASE, extraHeaders, fetch })).rejects.toThrow(/Extra HTTP Headers/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('rejects a malformed host before touching the network', async () => {
+    const { fetch, calls } = fakeFetch(ok('answer'));
+    await expect(chat(MESSAGES, { ...BASE, basePath: 'https://', fetch })).rejects.toThrow(/valid http/);
+    expect(calls).toHaveLength(0);
+  });
   it('validates settings before touching the network', async () => {
     const { fetch, calls } = fakeFetch(ok('x'));
-    await expect(chat(MESSAGES, { ...BASE, apiKey: '  ', fetch })).rejects.toThrow(/No DeepSeek API key/);
     await expect(chat(MESSAGES, { ...BASE, basePath: '', fetch })).rejects.toThrow(/No API Base URL/);
     await expect(chat(MESSAGES, { ...BASE, model: ' ', fetch })).rejects.toThrow(/No model/);
     expect(calls).toHaveLength(0);
@@ -175,7 +218,7 @@ describe('chat', () => {
   });
 
   it.each([
-    [401, { error: { message: 'Authentication Fails' } }, /Invalid DeepSeek API key \(401\): Authentication Fails/],
+    [401, { error: { message: 'Authentication Fails' } }, /Invalid API key \(401\): Authentication Fails/],
     [402, { error: { message: 'Insufficient Balance' } }, /insufficient balance \(402\)/],
     [429, { error: { message: 'Rate limit' } }, /rate limit reached \(429\)/],
   ])('maps HTTP %d to a readable error', async (status, body, pattern) => {
@@ -328,30 +371,30 @@ describe('messages for a misconfigured endpoint or model', () => {
 
   it('names the base URL setting when the reply is not from the API at all', () => {
     expect(describeHttpError(404, '', { url })).toBe(
-      `Nothing answers at ${url} (404). Check the API Base URL setting; the default is https://api.deepseek.com/v1.`,
+      `Nothing answers at ${url} (404). Check the API Base URL setting; the default is https://api.openai.com/v1.`,
     );
     expect(describeHttpError(429, '<!DOCTYPE html>\n<html><title>Error - Request Blocked</title>', { url })).toMatch(
-      /^DeepSeek request failed \(429\): .* answered with a web page, not an API reply\. Check the API Base URL setting/,
+      /^API request failed \(429\): .* answered with a web page, not an API reply\. Check the API Base URL setting/,
     );
     expect(describeHttpError(404, '{"error":{"message":"not found"}}', { url })).toBe(
-      `Nothing answers at ${url} (404): not found. Check the API Base URL setting; the default is https://api.deepseek.com/v1.`,
+      `Nothing answers at ${url} (404): not found. Check the API Base URL setting; the default is https://api.openai.com/v1.`,
     );
   });
 
   it('points at the Model setting for the message DeepSeek sends for an unknown model', () => {
     const body = '{"error":{"message":"The supported API model names are deepseek-flash, deepseek-v4-pro, but you passed deepseek-chta.","type":"invalid_request_error"}}';
     expect(describeHttpError(400, body, { model: 'deepseek-chta' })).toBe(
-      'DeepSeek does not know the model "deepseek-chta" (400): The supported API model names are deepseek-flash, deepseek-v4-pro, but you passed deepseek-chta. Check the Model setting.',
+      'The API rejected the model or its parameters "deepseek-chta" (400): The supported API model names are deepseek-flash, deepseek-v4-pro, but you passed deepseek-chta. Check the Model and Temperature settings.',
     );
     expect(describeHttpError(400, '{"error":{"message":"Invalid temperature value, the valid range of temperature is [0, 2]"}}')).toBe(
-      'DeepSeek rejected the request as malformed (400): Invalid temperature value, the valid range of temperature is [0, 2]',
+      'The API rejected the request as malformed (400): Invalid temperature value, the valid range of temperature is [0, 2]',
     );
   });
 
   it('refuses a base URL without a scheme before sending anything', async () => {
     const { fetch, calls } = fakeFetch(ok('x'));
     await expect(chat(MESSAGES, { ...BASE, basePath: 'api.deepseek.com/v1', fetch })).rejects.toThrow(
-      'The API Base URL must start with https:// — it is "api.deepseek.com/v1". Check the API Base URL setting; the default is https://api.deepseek.com/v1.',
+      'The API Base URL must start with http:// or https:// — it is "api.deepseek.com/v1". Check the API Base URL setting; the default is https://api.openai.com/v1.',
     );
     expect(calls).toEqual([]);
   });

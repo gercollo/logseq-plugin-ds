@@ -1,5 +1,5 @@
 import { SettingSchemaDesc } from '@logseq/libs/dist/LSPlugin.user';
-import { DEFAULT_BASE_PATH } from './deepseek';
+import { DEFAULT_BASE_PATH } from './chat';
 import { IPrompt } from './prompts/type';
 
 /** The settings as the plugin uses them; see {@link readSettings}. */
@@ -8,6 +8,8 @@ export interface ISettings {
   basePath: string;
   model: string;
   temperature: number | undefined;
+  sendTemperature: boolean;
+  extraHeaders: unknown;
   searchApiKey: string;
   tag: string;
   /** Validated by `resolvePrompts`; anything may be in the settings file. */
@@ -22,7 +24,7 @@ export interface CustomPromptsSetting {
 
 export const SETTING_DEFAULTS = {
   basePath: DEFAULT_BASE_PATH,
-  model: 'deepseek-chat',
+  model: 'gpt-4o-mini',
   temperature: 0.3,
   tag: '[[🤖]]',
 } as const;
@@ -61,6 +63,8 @@ export function readSettings(raw: unknown): ISettings {
     basePath: text(s.basePath),
     model: text(s.model),
     temperature: readTemperature(s.temperature),
+    sendTemperature: s.sendTemperature !== false,
+    extraHeaders: s.extraHeaders ?? {},
     searchApiKey: text(s.searchApiKey),
     tag: text(s.tag),
     customPrompts: s.customPrompts,
@@ -73,7 +77,8 @@ const settings: SettingSchemaDesc[] = [
     type: 'string',
     title: 'API Key',
     description:
-      'Your DeepSeek API key. Create one at https://platform.deepseek.com/api_keys',
+      'Your endpoint\'s API key, sent as a Bearer token. Leave empty for local servers ' +
+      'without authentication or use Extra HTTP Headers for other authentication schemes.',
     default: '',
   },
   {
@@ -81,8 +86,8 @@ const settings: SettingSchemaDesc[] = [
     type: 'string',
     title: 'API Base URL',
     description:
-      'DeepSeek API base URL. Change it only if you use a proxy or another ' +
-      'OpenAI-compatible endpoint.',
+      'Any OpenAI-compatible Chat Completions base URL (include /v1 if needed), ' +
+      'or the full /chat/completions URL. Supports http:// local servers and query parameters.',
     default: SETTING_DEFAULTS.basePath,
   },
   {
@@ -90,8 +95,7 @@ const settings: SettingSchemaDesc[] = [
     type: 'string',
     title: 'Model',
     description:
-      'Model name: "deepseek-chat" (fast, general purpose) or "deepseek-reasoner" ' +
-      '(slower, better at reasoning). Individual custom prompts can override this.',
+      'Any model or deployment name supported by your endpoint. Custom prompts can override this.',
     default: SETTING_DEFAULTS.model,
   },
   {
@@ -102,8 +106,24 @@ const settings: SettingSchemaDesc[] = [
       'Sampling temperature, 0.0 - 2.0. Low values keep the answer close to your ' +
       'own text, which suits the rewriting commands (Polish, Shorten, Tone). Raise ' +
       'it towards 1.3 if you want Brainstorm or Ask AI to range wider. Ignored by ' +
-      'deepseek-reasoner.',
+      'known reasoning models. Disable Send Temperature for other models that reject it.',
     default: SETTING_DEFAULTS.temperature,
+  },
+  {
+    key: 'sendTemperature',
+    type: 'boolean',
+    title: 'Send Temperature',
+    description: 'Turn off to use the server default or when your model rejects temperature.',
+    default: true,
+  },
+  {
+    key: 'extraHeaders',
+    type: 'object',
+    title: 'Extra HTTP Headers',
+    description:
+      'Optional JSON object of header names and string values, e.g. {"api-key":"your-key"}. ' +
+      'Overrides default headers, including Authorization, case-insensitively.',
+    default: {},
   },
   {
     key: 'searchApiKey',

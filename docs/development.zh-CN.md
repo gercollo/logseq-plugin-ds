@@ -24,7 +24,7 @@ pnpm test:live  # 拿真实 API 跑 prompt —— 要花钱、要 key，见下�
 | `src/settings.ts` | 设置项的 schema 和默认值 |
 | `src/search.ts` | 联网搜索客户端（Tavily） |
 | `src/verify.ts` | 搜索循环：提供工具、处理调用、最后作答 |
-| `src/deepseek.ts` | API 客户端 |
+| `src/chat.ts` | API 客户端 |
 | `src/parsers.ts` | 把回复解析成列表或结构化字段 |
 | `src/prompts/` | 内置 prompt，一个文件一条；`index.ts` 决定顺序 |
 | `live/` | prompt 的行为测试（见下文）。不属于 `pnpm test` |
@@ -62,7 +62,7 @@ DeepSeek API 上（联网命令还会用到 Tavily），网格是 **命令 × �
 把 `live/baseline.json` 和 prompt 一起提交。
 
 key 从环境变量 `DEEPSEEK_API_KEY` / `TAVILY_API_KEY` 读取，没有的话读插件自己的设置文件
-（`~/.logseq/settings/logseq-plugin-deepseek-assistant.json`，`LIVE_SETTINGS` 可以指到别处）。
+（`~/.logseq/settings/logseq-plugin-openai-assistant.json`，`LIVE_SETTINGS` 可以指到别处）。
 绝不要把 key 写进仓库。没有 Tavily key 时联网命令就不在网格里，跟插件里的行为一样。
 
 费用（用 `deepseek-chat` 实测）：

@@ -1,24 +1,28 @@
-# Logseq DeepSeek Assistant
+# Logseq AI Assistant
 
-Call DeepSeek from a slash command, right inside a Logseq block. **English** | [中文](./readme.zh-CN.md)
+Call any OpenAI-compatible Chat Completions endpoint from a slash command, right inside a Logseq block. **English** | [中文](./readme.zh-CN.md)
 
-Type `/Polish` in a block and DeepSeek rewrites it — the block **and the points nested under
+Type `/Polish` in a block and your chosen model rewrites it — the block **and the points nested under
 it**, each one updated in place. No window switching, no copy-paste; the answer lands in your
 notes.
 
 ![Polishing a block and its sub-points with one command](./docs/demo.gif)
 
-A DeepSeek port of [ahonn/logseq-plugin-ai-assistant](https://github.com/ahonn/logseq-plugin-ai-assistant) (MIT).
+A public fork of [victos/logseq-plugin-ds](https://github.com/victos/logseq-plugin-ds), itself a port of
+[ahonn/logseq-plugin-ai-assistant](https://github.com/ahonn/logseq-plugin-ai-assistant) (MIT).
+This fork adds optional authentication, custom headers, query-aware endpoint URLs and
+configurable temperature handling. All the existing commands work with your chosen model.
 
 ## Quick start
 
-**1. Get an API key** — sign up at [platform.deepseek.com](https://platform.deepseek.com/api_keys)
-and create a key. DeepSeek is prepaid, so add a small balance too.
+**1. Choose an endpoint and model** — use a hosted provider or start a local OpenAI-compatible server.
+For hosted providers, get an API key from that provider.
 
 **2. Install the plugin**
 
 Turn on developer mode in Logseq (`Settings → Advanced → Developer mode`), then either
-download a release package, or build it yourself:
+download the built plugin ZIP from [Releases](https://github.com/gercollo/logseq-plugin-ds/releases),
+extract it, or build it yourself:
 
 ```sh
 pnpm install && pnpm build
@@ -26,7 +30,9 @@ pnpm install && pnpm build
 
 Then `Plugins → Load unpacked plugin` and pick this folder.
 
-**3. Paste your key** into the plugin settings. That is the only required setting.
+**3. Configure API Base URL, Model and API Key** in the plugin settings. The model name must
+exist at that endpoint. Leave the key empty if your server does not require authentication.
+See the endpoint examples below.
 
 **4. Try it** — put the cursor in any block and type `/Summarize`.
 
@@ -112,51 +118,47 @@ last saved version.
 
 | Setting | Default | What it is for |
 | --- | --- | --- |
-| **API Key** | *(empty)* | **Required.** Your DeepSeek key |
-| **API Base URL** | `https://api.deepseek.com/v1` | Only change this if you go through a proxy or another OpenAI-compatible endpoint |
-| **Model** | `deepseek-chat` | See below. A custom prompt can override it per command |
-| **Temperature** | `0.3` | How closely the answer sticks to your text. Low is right for rewriting; raise it towards `1.3` for Brainstorm or Ask AI |
-| **Tag** | `[[🤖]]` | Added to AI output. Write it without the `#`; leave empty to turn tagging off |
-| **Web Search API Key** | *(empty)* | Optional. A [Tavily](https://tavily.com) key; enables `/Ask Online`, `/Verify Online` and any custom prompt with `"search": true` |
+| **API Key** | *(empty)* | Your endpoint's key, sent as `Authorization: Bearer …`. Optional for servers without authentication |
+| **API Base URL** | `https://api.openai.com/v1` | Base URL including the API prefix, or the full `/chat/completions` URL. HTTP and HTTPS are accepted; query parameters are preserved |
+| **Model** | `gpt-4o-mini` | Any model or deployment name supported by your endpoint. A custom prompt can override it |
+| **Temperature** | `0.3` | Sampling temperature for models that support it |
+| **Send Temperature** | on | Turn off to omit the parameter and use the server default. Automatically omitted for `deepseek-reasoner`, OpenAI `o1`/`o3`/`o4` and `gpt-5` model families |
+| **Extra HTTP Headers** | `{}` | JSON object with string values, for provider-specific authentication or routing. Overrides default headers case-insensitively |
+| **Tag** | `[[🤖]]` | Added to AI output; write without `#`, or leave empty to disable |
+| **Web Search API Key** | *(empty)* | Optional [Tavily](https://tavily.com) key; enables searching commands. Requires a model with function calling |
 | **Custom Prompts** | off | Your own commands — see [Writing your own commands](./docs/custom-prompts.md) |
 
-Changes to the first five apply to the next command you run; no reload needed. A field you
-have cleared — even to a few spaces — counts as unset and falls back to its default. The Web
-Search API Key is different: it decides whether the searching commands are registered at all, so
-setting or clearing it needs a reload — the plugin reminds you once, when the set of commands
-changes.
+Endpoint, key, headers, model and temperature changes apply to the next command without a reload.
+Blank base URL or model fields use their defaults. A blank key sends no Authorization header.
+Logseq stores edited number fields as text; both text and numeric temperatures work.
+Changing which commands are available (search key or custom command names) needs a reload.
 
-Until an API key is set, the plugin says so once when it loads, so a fresh install is not left
-guessing why a command fails.
+### Endpoint examples
 
-Logseq saves the Temperature field as text once you have edited it (`"0.3"`, not `0.3`); the
-plugin reads it either way. Earlier builds did not, and silently ran every command at
-DeepSeek's own default of `1.0` as soon as the field had been touched.
+| Provider / server | API Base URL | Model | API Key |
+| --- | --- | --- | --- |
+| [OpenAI](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create) | `https://api.openai.com/v1` | `gpt-4o-mini` or a supported Chat Completions model | OpenAI key |
+| DeepSeek | `https://api.deepseek.com/v1` | A model supported by DeepSeek, such as `deepseek-chat` | DeepSeek key |
+| [OpenRouter](https://openrouter.ai/docs/quickstart) | `https://openrouter.ai/api/v1` | The provider/model identifier from OpenRouter | OpenRouter key |
+| [Ollama](https://docs.ollama.com/api/openai-compatibility) | `http://localhost:11434/v1` | A model you have pulled | Empty for an unauthenticated local server |
+| [LM Studio](https://lmstudio.ai/docs/developer/openai-compat) | `http://localhost:1234/v1` | The identifier of a loaded model | Empty unless server authentication is enabled |
+| Other gateways / proxies | Their OpenAI-compatible API prefix or full completions URL | Their model or deployment name | As required by the server |
 
-A changed default does not reach an existing install: Logseq keeps the values already stored, so
-if you set the plugin up before the default moved to `0.3`, your Temperature is still `1.0`
-until you change it.
+For a deployment endpoint with query parameters, enter its full URL, for example
+`https://YOUR_RESOURCE.openai.azure.com/openai/deployments/YOUR_DEPLOYMENT/chat/completions?api-version=YOUR_API_VERSION`.
+Use the API version specified by your provider. For `api-key` authentication, leave API Key empty
+and set Extra HTTP Headers to `{"api-key":"YOUR_KEY"}`. Other custom headers, such as
+`{"HTTP-Referer":"https://your-site.example","X-Title":"Logseq"}`, work the same way.
 
-### Which model?
+Compatibility means the text **Chat Completions** request/response format, including system messages.
+Endpoints that expose only Responses or a provider's native API need a compatible gateway.
+The optional searching commands also need OpenAI-style function calling; plain commands do not.
+All responses are non-streaming. Known reasoning models omit temperature conservatively; for
+other model names or deployment aliases, turn off Send Temperature if the endpoint rejects it.
 
-- **`deepseek-chat`** — fast and cheap. Right for almost everything: summarizing, rewriting,
-  changing tone.
-- **`deepseek-reasoner`** — thinks step by step before answering. Better for analysis and hard
-  questions, and noticeably slower. It is not a pricier model: both names route to the same one
-  and are billed at the same rate, but its thinking counts as output, so a run costs more than
-  the same question asked of `deepseek-chat`. Its thinking never reaches your block; during a
-  `/Verify Online` run it is handed back to the model between searches, as the API requires, and
-  dropped once the answer is in. The Temperature setting is not sent to it.
-
-  It was measured against the live suite on the cells most likely to catch a thinking model out
-  — the one-line `summarize::` property, code blocks that must survive a rewrite, a true claim
-  that invites nitpicking, and language on Chinese and German input — 24 cells × 2 samples,
-  156/156 property checks. Its searching path is verified only on a handful of runs.
-
-DeepSeek's API currently names its models `deepseek-flash` and `deepseek-v4-pro` in its own
-messages; `deepseek-chat` and `deepseek-reasoner` are still accepted and map onto them. Either
-spelling works in the Model setting. A name DeepSeek does not know fails with
-`DeepSeek does not know the model "…"`, which quotes the names it does.
+This fork uses the separate plugin ID `logseq-plugin-openai-assistant`. If moving from DeepSeek
+Assistant, copy your settings into this plugin and disable the old plugin to avoid duplicate slash commands.
+Existing DeepSeek endpoints and custom prompts remain usable.
 
 ## When something goes wrong
 
@@ -164,30 +166,29 @@ Every failure shows up as a Logseq notification. The common ones:
 
 | Message | What to do |
 | --- | --- |
-| `DeepSeek Assistant: no API key set yet. …` | Shown once when the plugin loads without a key. Paste your key into the settings |
-| `No DeepSeek API key configured. Set it in the plugin settings.` | Paste your key into the settings |
-| `The API Base URL must start with https:// — it is "…".` | The API Base URL setting has no scheme. The default is `https://api.deepseek.com/v1` |
-| `Nothing answers at … (404). Check the API Base URL setting …` | The URL points at nothing — a typo in the path, most likely. Reset the API Base URL to its default |
-| `DeepSeek request failed (…): … answered with a web page, not an API reply.` | The URL reaches a website, not the API — `platform.deepseek.com` instead of `api.deepseek.com`, say. Reset the API Base URL |
-| `DeepSeek does not know the model "…" (400): …` | The Model setting (or a custom prompt's `model`) names a model DeepSeek does not have; the message lists the ones it does |
-| `Invalid DeepSeek API key (401): …` | Re-copy the key into settings |
-| `DeepSeek account has insufficient balance (402): …` | Top up at platform.deepseek.com |
-| `DeepSeek rate limit reached (429): …` | Wait a moment and retry |
+| `AI Assistant: configure your API Base URL, Model and API Key …` | The default OpenAI endpoint has no key. Configure your provider, or use a local server |
+| `The API Base URL must start with http:// or https:// — it is "…".` | The API Base URL setting has no scheme. Include `http://` or `https://` |
+| `Nothing answers at … (404). Check the API Base URL setting …` | The URL points at nothing — a typo in the path, most likely. Check your provider's API path |
+| `API request failed (…): … answered with a web page, not an API reply.` | The URL reaches a website, not the API — `platform.deepseek.com` instead of `api.deepseek.com`, say. Use your provider's API URL |
+| `The API rejected the model or its parameters "…" (400): …` | Check your model name and the provider's error detail. Turn off Send Temperature if needed |
+| `Invalid API key (401): …` | Re-copy the key into settings |
+| `API account has insufficient balance (402): …` | Check your provider's billing or quota |
+| `API rate limit reached (429): …` | Wait a moment and retry |
 | `Could not reach …` | Check your network and the API Base URL |
-| `DeepSeek did not answer within 300 s.` | Retry. If it keeps happening on `deepseek-reasoner`, switch to `deepseek-chat` or use a smaller block |
-| `DeepSeek stopped at its output limit — the answer may be cut off.` | The answer was written but may be truncated. Ask for something shorter |
-| `The block is empty — nothing to send to DeepSeek.` | The block (and its children) had no text after removing properties |
-| `The block was deleted while DeepSeek was answering.` | The answer was discarded. Run the command again on the new block |
+| `The model did not answer within 300 s.` | Retry with a smaller block or a faster model |
+| `The model stopped at its output limit — the answer may be cut off.` | The answer was written but may be truncated. Ask for something shorter |
+| `The block is empty — nothing to send to the model.` | The block (and its children) had no text after removing properties |
+| `The block was deleted while the model was answering.` | The answer was discarded. Run the command again on the new block |
 | `This block has no text of its own to rewrite. Run the command on a block with text, or on one of the children.` | `/Polish`, `/Shorten`, `/Expand`, `/Tone:` and custom `replace` prompts only: the block is empty (or holds only the tag) and has children. Rewriting from here would shift every child up by one, so nothing was sent |
-| `DeepSeek returned nothing to insert.` | The reply had no usable line — with `/Fact Check`, every line it wrote was about a statement it found nothing wrong with, and those are dropped. Run it again, or on a smaller block |
+| `The model returned nothing to insert.` | The reply had no usable line — with `/Fact Check`, every line it wrote was about a statement it found nothing wrong with, and those are dropped. Run it again, or on a smaller block |
 | `This Logseq version cannot set block properties on a DB graph. Update Logseq, or change the prompt’s "output" away from "property".` | DB graphs only: this Logseq build has no `upsertBlockProperty`. Update Logseq, or give the prompt another `output` |
 | `Could not write the "…" property on this DB graph: …` | DB graphs only: the property could not be defined or written; the message says why. Create the property in Logseq first, or give the prompt `output: insert` |
-| `DeepSeek kept searching without answering (4 rounds). Try a shorter block.` | Searching commands only (`/Ask Online`, `/Verify Online`, custom prompts with `search`): the model wanted a fifth round of searching. Put fewer claims or questions in the block |
+| `The model kept searching without answering (4 rounds). Try a shorter block.` | Searching commands only (`/Ask Online`, `/Verify Online`, custom prompts with `search`): the model wanted a fifth round of searching. Put fewer claims or questions in the block |
 | `No Tavily API key configured. Set it in the plugin settings.` | A searching command was registered while a search key was set, and the key has since been cleared (or blanked to spaces). Set it again, or reload the plugin to drop the command |
 | `Invalid Tavily API key (401): …` | Re-copy the Tavily key into settings |
 | `Tavily rate limit or monthly quota reached (429): …` | The month's searches are used up. Wait for the reset or upgrade the plan |
 | `Tavily plan limit reached (432): …` | Your Tavily plan does not allow the request; check the Tavily dashboard |
-| `DeepSeek Assistant ignored N custom prompt(s): …` | One of your custom prompts is malformed, or the `customPrompts` setting as a whole has the wrong shape; the message says which |
+| `AI Assistant ignored N custom prompt(s): …` | One of your custom prompts is malformed, or the `customPrompts` setting as a whole has the wrong shape; the message says which |
 | `Available commands changed. Reload the plugin to update the slash menu.` | You added, renamed or removed a custom prompt, or set or cleared the Web Search API Key. Said once per such change |
 
 Still stuck? Open the Logseq developer console (`Ctrl+Shift+I`) — the full error is logged there.

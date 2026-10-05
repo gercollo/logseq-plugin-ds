@@ -10,7 +10,7 @@
  */
 import { propertyKey, stripTag, tagSuffix, withTag } from './block';
 import { BlockOps } from './graph';
-import { chat, ChatMessage, ChatOptions, ChatResult } from './deepseek';
+import { chat, ChatMessage, ChatOptions, ChatResult } from './chat';
 import { getOutputParser, OutputParser } from './parsers';
 import { buildUserMessage, DEFAULT_SYSTEM, resolvePrompts } from './prompt';
 import { presetPrompts } from './prompts';
@@ -43,8 +43,8 @@ export interface PluginHost {
 }
 
 export const NO_API_KEY_AT_START =
-  'DeepSeek Assistant: no API key set yet. Open the plugin settings and paste your DeepSeek ' +
-  'key (https://platform.deepseek.com/api_keys) before running a command.';
+  'AI Assistant: configure your API Base URL, Model and API Key in the plugin settings. ' +
+  'Local servers without authentication can leave the key empty.';
 
 export const COMMANDS_CHANGED =
   'Available commands changed. Reload the plugin to update the slash menu.';
@@ -69,7 +69,8 @@ export function chatOptionsFor(settings: ISettings, definition: IPrompt): ChatOp
     apiKey: settings.apiKey.trim(),
     basePath: settings.basePath.trim() || SETTING_DEFAULTS.basePath,
     model: definition.model?.trim() || settings.model.trim() || SETTING_DEFAULTS.model,
-    temperature: settings.temperature,
+    temperature: settings.sendTemperature ? settings.temperature : undefined,
+    extraHeaders: settings.extraHeaders,
   };
 }
 
@@ -111,7 +112,7 @@ export async function runPrompt(definition: IPrompt, uuid: string, host: PluginH
 
   const content = stripTag(await ops.readContext(uuid, tag), tag).trim();
   if (!content) {
-    await ui.showMsg('The block is empty — nothing to send to DeepSeek.', 'warning');
+    await ui.showMsg('The block is empty — nothing to send to the model.', 'warning');
     return;
   }
   if (definition.output === PromptOutputType.replace) {
@@ -135,7 +136,7 @@ export async function runPrompt(definition: IPrompt, uuid: string, host: PluginH
   // One line per run, so "the wrong thing happened" can be traced to the command
   // that actually ran and the text it actually saw, without guessing.
   host.log?.debug(
-    `[DeepSeek Assistant] /${definition.name} -> ${definition.output}`,
+    `[AI Assistant] /${definition.name} -> ${definition.output}`,
     { model: chatOptions.model, messages },
   );
 
@@ -168,7 +169,7 @@ export async function runPrompt(definition: IPrompt, uuid: string, host: PluginH
 
   // Re-read: the user may have kept typing while the request was in flight.
   if ((await ops.readText(uuid)) === null) {
-    await ui.showMsg('The block was deleted while DeepSeek was answering.', 'warning');
+    await ui.showMsg('The block was deleted while the model was answering.', 'warning');
     return;
   }
 
@@ -181,7 +182,7 @@ export async function runPrompt(definition: IPrompt, uuid: string, host: PluginH
     case PromptOutputType.insert: {
       const items = responseItems(parser, response);
       if (items.length === 0) {
-        await ui.showMsg('DeepSeek returned nothing to insert.', 'warning');
+        await ui.showMsg('The model returned nothing to insert.', 'warning');
       }
       // The tag marks AI-written text, so it goes on the new child blocks; the
       // user's own block is not touched (this is what makes Fact Check safe).
@@ -197,7 +198,7 @@ export async function runPrompt(definition: IPrompt, uuid: string, host: PluginH
       if (kept > 0) {
         await ui.showMsg(
           `${kept} block(s) were left as they were: something links to them, or they hold ` +
-            'notes DeepSeek was not shown. Delete them by hand if you want them gone.',
+            'notes the model was not shown. Delete them by hand if you want them gone.',
           'warning',
         );
       }
@@ -210,7 +211,7 @@ export async function runPrompt(definition: IPrompt, uuid: string, host: PluginH
 
   if (result.finishReason === 'length') {
     await ui.showMsg(
-      'DeepSeek stopped at its output limit — the answer may be cut off.',
+      'The model stopped at its output limit — the answer may be cut off.',
       'warning',
     );
   }
@@ -220,9 +221,9 @@ function reportProblems(host: PluginHost, problems: string[]) {
   if (problems.length === 0) {
     return;
   }
-  host.log?.warn('[DeepSeek Assistant] ignored custom prompts:', problems);
+  host.log?.warn('[AI Assistant] ignored custom prompts:', problems);
   void host.ui.showMsg(
-    `DeepSeek Assistant ignored ${problems.length} custom prompt(s):\n${problems.join('\n')}`,
+    `AI Assistant ignored ${problems.length} custom prompt(s):\n${problems.join('\n')}`,
     'warning',
   );
 }
@@ -235,7 +236,11 @@ export function startPlugin(host: PluginHost): void {
   const { prompts, problems } = currentPrompts(host);
   const registered = new Set(prompts.map((prompt) => prompt.name));
   reportProblems(host, problems);
-  if (!currentSettings(host).apiKey.trim()) {
+  const settings = currentSettings(host);
+  if (!settings.apiKey.trim() &&
+      (!settings.basePath.trim() || settings.basePath.trim() === SETTING_DEFAULTS.basePath) &&
+      typeof settings.extraHeaders === 'object' && settings.extraHeaders !== null &&
+      Object.keys(settings.extraHeaders).length === 0) {
     // Said once, at load: otherwise a fresh install finds out on its first
     // command, after the "Summarize…" toast has already come and gone.
     void host.ui.showMsg(NO_API_KEY_AT_START, 'warning');

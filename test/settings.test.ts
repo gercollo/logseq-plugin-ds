@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRequestBody } from '../src/deepseek';
+import { buildRequestBody } from '../src/chat';
 import settings, { SETTING_DEFAULTS, readTemperature } from '../src/settings';
 
 describe('readTemperature', () => {
@@ -32,13 +32,15 @@ describe('settings schema', () => {
       basePath: SETTING_DEFAULTS.basePath,
       model: SETTING_DEFAULTS.model,
       temperature: SETTING_DEFAULTS.temperature,
+      sendTemperature: true,
+      extraHeaders: {},
       searchApiKey: '',
       tag: SETTING_DEFAULTS.tag,
       customPrompts: { enable: false, prompts: [] },
     });
     expect(SETTING_DEFAULTS).toEqual({
-      basePath: 'https://api.deepseek.com/v1',
-      model: 'deepseek-chat',
+      basePath: 'https://api.openai.com/v1',
+      model: 'gpt-4o-mini',
       temperature: 0.3,
       tag: '[[🤖]]',
     });

@@ -1,6 +1,6 @@
 /// <reference types="node" />
 /**
- * The behavioural suite for the prompts: the real prompts, the live DeepSeek
+ * The behavioural suite for the prompts: the real prompts, the configured compatible
  * API (and Tavily for the searching commands), and properties of what comes
  * back. It costs money and needs keys, so it is not part of `pnpm test`; run
  * `pnpm test:live`. `docs/development.md` lists the knobs.
@@ -14,7 +14,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { chat } from '../src/deepseek';
+import { chat } from '../src/chat';
 import { getOutputParser } from '../src/parsers';
 import { buildMessages, chatOptionsFor, responseItems } from '../src/plugin';
 import { resolvePrompts } from '../src/prompt';
@@ -36,18 +36,19 @@ const LAST_RUN_TXT = join(HERE, 'last-run.txt');
 const env = process.env;
 
 function loadSettings(): ISettings {
-  const path = env.LIVE_SETTINGS ?? join(homedir(), '.logseq', 'settings', 'logseq-plugin-deepseek-assistant.json');
+  const path = env.LIVE_SETTINGS ?? join(homedir(), '.logseq', 'settings', 'logseq-plugin-openai-assistant.json');
   const fromFile = existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>) : {};
   // The environment wins over the settings file, so CI can run without one.
   const settings = readSettings({
     ...fromFile,
-    ...(env.DEEPSEEK_API_KEY ? { apiKey: env.DEEPSEEK_API_KEY } : {}),
-    ...(env.DEEPSEEK_BASE_PATH ? { basePath: env.DEEPSEEK_BASE_PATH } : {}),
+    ...((env.OPENAI_API_KEY ?? env.DEEPSEEK_API_KEY) !== undefined ? { apiKey: env.OPENAI_API_KEY ?? env.DEEPSEEK_API_KEY } : {}),
+    ...((env.OPENAI_BASE_URL ?? env.DEEPSEEK_BASE_PATH) ? { basePath: env.OPENAI_BASE_URL ?? env.DEEPSEEK_BASE_PATH } : {}),
+    ...(env.OPENAI_MODEL ? { model: env.OPENAI_MODEL } : {}),
     ...(env.TAVILY_API_KEY ? { searchApiKey: env.TAVILY_API_KEY } : {}),
   });
-  if (!settings.apiKey.trim()) {
+  if (!settings.apiKey.trim() && !settings.basePath.trim() && Object.keys(settings.extraHeaders as object).length === 0) {
     throw new Error(
-      `No DeepSeek key: set DEEPSEEK_API_KEY or put "apiKey" in ${path} (LIVE_SETTINGS overrides the path).`,
+      `No endpoint configured: set OPENAI_BASE_URL for a local server, OPENAI_API_KEY for OpenAI, or put "apiKey" in ${path} (LIVE_SETTINGS overrides the path).`,
     );
   }
   return settings;
