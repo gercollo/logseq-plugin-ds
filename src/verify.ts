@@ -32,16 +32,8 @@ export const SEARCH_TOOL = {
 export const MAX_SEARCH_HOPS = 4;
 
 /**
- * Said to the model before the last pass. Forbidding the tool through the API
- * alone is not enough: deepseek-reasoner, refused a call it wanted to make,
- * writes the call out as text instead of answering. Told in the conversation,
- * it answers.
- *
- * The line is shared by every searching command, so it must not name any one
- * command's format. An earlier wording mentioned ❓ "in a fact check", and
- * /Ask Online copied the mark into its prose on 3 forced answers out of 4;
- * with no mark named, 0 out of 6, while /Verify Online — whose own prompt
- * defines ❓ — still used it for the claim no source settled, 6 out of 6.
+ * The final pass also tells the model to stop searching in the conversation.
+ * Shared by all searching commands, so it does not impose a command's format.
  */
 export const ANSWER_NOW =
   'Search is no longer available in this conversation. Do not call any tool. Answer now, ' +
@@ -49,11 +41,9 @@ export const ANSWER_NOW =
   'leave unsettled.';
 
 /**
- * The model's own tool-call syntax leaking into the text. Seen from
- * deepseek-reasoner as `<｜DSML｜ calls>…`; such a reply is not an answer and
- * must never reach the block.
+ * Raw tool-call markup is not an answer and must not reach the block.
  */
-const LEAKED_TOOL_MARKUP = /<｜+DSML｜+|<tool_call>|<function_calls?>/i;
+const LEAKED_TOOL_MARKUP = /<tool_call>|<function_calls?>/i;
 
 export interface VerifyResult extends ChatResult {
   /** The queries the model asked for, in order. A repeat is answered from the earlier result. */
@@ -96,11 +86,7 @@ export async function verifyWithSearch(
   const served = new Map<string, string>();
 
   for (let hop = 0; hop <= maxHops; hop++) {
-    // The tool definitions stay in every request: the history holds tool calls
-    // and their replies, and deepseek-reasoner, asked to continue that history
-    // with no tools declared, writes raw tool-call markup as its answer. On the
-    // last pass calling is forbidden and the model is told so, which forces an
-    // answer.
+    // Keep the tool definitions with their history, but forbid further calls on the last pass.
     const last = hop === maxHops;
     if (last) {
       history.push({ role: 'user', content: ANSWER_NOW });
@@ -121,9 +107,7 @@ export async function verifyWithSearch(
       break;
     }
 
-    // deepseek-reasoner's thinking goes back with its calls: the API documents a
-    // 400 without it, and a model continuing a tool history without its own
-    // reasoning is the one that was seen writing tool-call markup as text.
+    // Preserve any reasoning supplied by a compatible endpoint alongside the tool calls.
     history.push({
       role: 'assistant',
       content: result.content,

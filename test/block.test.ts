@@ -117,7 +117,7 @@ describe('propertyKey', () => {
     ['Markdown Table', 'markdown-table'],
     ['  Weird!!  Name: v2 ', 'weird-name-v2'],
     ['snake_case.ok', 'snake_case.ok'],
-    ['总结', '总结'],
+    ['Résumé', 'résumé'],
     ['', 'ai'],
     ['!!!', 'ai'],
     ['123', 'ai-123'],

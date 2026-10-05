@@ -117,7 +117,7 @@ function fakeHost(settings: unknown, opts: { ops?: BlockOps; chat?: Chat | null;
   };
 }
 
-const CONFIGURED = { apiKey: 'sk-x', basePath: 'https://api.deepseek.com/v1', model: 'deepseek-chat', temperature: '0.3', tag: '[[🤖]]' };
+const CONFIGURED = { apiKey: 'sk-x', basePath: 'https://api.openai.com/v1', model: 'gpt-4o-mini', temperature: '0.3', tag: '[[🤖]]' };
 
 describe('a fresh install with nothing configured', () => {
   it('registers the twelve built-in commands, not the searching ones, and says the key is missing', () => {
@@ -325,7 +325,7 @@ describe('running a command', () => {
     startPlugin(h.host);
     await h.run('Summarize');
     expect(a.seen).toHaveLength(1);
-    expect(a.seen[0].options).toEqual({ apiKey: 'sk-x', basePath: 'https://api.deepseek.com/v1', model: 'gpt-4o-mini', temperature: 1.3, extraHeaders: {} });
+    expect(a.seen[0].options).toEqual({ apiKey: 'sk-x', basePath: 'https://api.openai.com/v1', model: 'gpt-4o-mini', temperature: 1.3, extraHeaders: {} });
     expect(a.seen[0].messages[1].content).toContain('Hello');
     expect(writes).toEqual(['property summarize=Short.| #[[🤖]]']);
     expect(h.toasts).toEqual(['info: Summarize…']);
@@ -393,10 +393,10 @@ describe('custom prompts', () => {
     startPlugin(h.host);
     expect(h.commands.has('Mine')).toBe(true);
 
-    h.change(custom([{ name: 'Mine', prompt: 'B {{text}}', output: 'insert', model: 'deepseek-reasoner' }]));
+    h.change(custom([{ name: 'Mine', prompt: 'B {{text}}', output: 'insert', model: 'o3-mini' }]));
     await h.run('Mine');
     expect(a.seen[0].messages[1].content).toBe('B Hello');
-    expect(a.seen[0].options.model).toBe('deepseek-reasoner');
+    expect(a.seen[0].options.model).toBe('o3-mini');
     expect(writes).toEqual(['insert R #[[🤖]]']);
 
     h.change(custom([]));

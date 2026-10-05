@@ -20,8 +20,8 @@ const BULLET = /^\s*(?:[-*+•]|\d+[.)])\s+/;
 const VERDICT = /^\s*❌\s*(.+?)\s*→\s*✅\s*(.+)$/;
 // What may follow the repeated claim and still mean "nothing wrong here".
 const AFFIRMATION =
-  /^(?:(?:this|that|it|which|thestatement|thisstatement|thisclaim)?(?:is|s)?(?:true|correct|accurate|right|fine|ok)|(?:这|此|该|这句|此句|这句话|这一说法|该说法|说法)?(?:是|为)?(?:正确|对|准确|属实|无误|成立)的?)?$/;
-const normalise = (s: string) => s.replace(/[\s.,;:!?。，、；：！？"'“”‘’()（）]/g, '').toLowerCase();
+  /^(?:(?:this|that|it|which|thestatement|thisstatement|thisclaim)?(?:is|s)?(?:true|correct|accurate|right|fine|ok))?$/;
+const normalise = (s: string) => s.replace(/[\s\p{P}]/gu, '').toLowerCase();
 
 export function isNonFinding(line: string): boolean {
   const match = VERDICT.exec(line);
@@ -30,7 +30,7 @@ export function isNonFinding(line: string): boolean {
   }
   const claim = normalise(match[1]);
   // The correction often trails a parenthesised reason; compare only its head.
-  const correction = normalise(match[2].replace(/[（(][^）)]*[）)]\s*$/, ''));
+  const correction = normalise(match[2].replace(/\([^)]*\)\s*$/, ''));
   if (claim.length === 0 || !correction.startsWith(claim)) {
     return false;
   }

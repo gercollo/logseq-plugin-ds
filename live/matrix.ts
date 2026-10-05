@@ -4,13 +4,13 @@
  *
  * The inputs are fixed on purpose. A property such as "does not answer the
  * question" needs to know what the answer would look like, so each kind
- * carries the same facts in all three languages and the tokens that would
+ * carries the same facts in both languages and the tokens that would
  * betray a wrong reply are listed below the inputs.
  */
 import { IPrompt } from '../src/prompts/type';
 
-export type Lang = 'en' | 'zh' | 'de';
-export const LANGS: Lang[] = ['en', 'zh', 'de'];
+export type Lang = 'en' | 'de';
+export const LANGS: Lang[] = ['en', 'de'];
 
 export type Kind =
   | 'question'
@@ -29,51 +29,44 @@ export const KINDS: Kind[] = ['question', 'true-claim', 'false-claim', 'opinion'
 export const INPUTS: Record<Kind, Record<Lang, string>> = {
   question: {
     en: 'What is the capital of Portugal?',
-    zh: '葡萄牙的首都是哪里？',
     de: 'Was ist die Hauptstadt von Portugal?',
   },
   'true-claim': {
     en: 'Canberra is the capital of Australia, and water boils at 100 °C at sea level.',
-    zh: '堪培拉是澳大利亚的首都，水在海平面上 100 °C 沸腾。',
     de: 'Canberra ist die Hauptstadt Australiens, und Wasser kocht auf Meereshöhe bei 100 °C.',
   },
   // One true claim and one false one, so a fact checker has to tell them apart.
   'false-claim': {
-    en: 'Canberra is the capital of Australia, and the Great Wall of China is visible to the naked eye from the Moon.',
-    zh: '堪培拉是澳大利亚的首都，而且从月球上用肉眼就能看到中国的长城。',
-    de: 'Canberra ist die Hauptstadt Australiens, und die Chinesische Mauer ist mit bloßem Auge vom Mond aus zu sehen.',
+    en: 'Canberra is the capital of Australia, and the Sun orbits Earth.',
+    de: 'Canberra ist die Hauptstadt Australiens, und die Sonne kreist um die Erde.',
   },
   opinion: {
     en: 'Autumn is the most beautiful season, and tea is far better than coffee.',
-    zh: '秋天是最美的季节，茶比咖啡好得多。',
     de: 'Der Herbst ist die schönste Jahreszeit, und Tee ist viel besser als Kaffee.',
   },
   // Long enough that a summary can be shorter than it and a rewrite has
   // sub-points to keep; a three-line outline was not.
   outline: {
     en: "Plan for the team offsite in October\n\t- Book the venue by Friday and confirm the room layout with them\n\t- Collect everyone's dietary requirements before the catering order goes in\n\t- Draft the agenda, share it with the team and collect comments for a week\n\t- Arrange transport for the people coming from the other office\n\t- Send the final schedule out two days before we leave",
-    zh: '十月团队外出活动计划\n\t- 周五前订好场地，并和场地方确认房间布置\n\t- 在下餐饮订单之前收集好大家的饮食要求\n\t- 起草议程，发给全组，收集一周的意见\n\t- 给从另一个办公室过来的同事安排交通\n\t- 出发前两天把最终日程发出去',
     de: 'Plan für das Team-Offsite im Oktober\n\t- Bis Freitag den Veranstaltungsort buchen und die Raumaufteilung mit ihm abstimmen\n\t- Die Essenswünsche aller einsammeln, bevor die Catering-Bestellung rausgeht\n\t- Die Agenda entwerfen, mit dem Team teilen und eine Woche lang Rückmeldungen sammeln\n\t- Den Transport für die Kolleginnen und Kollegen aus dem anderen Büro organisieren\n\t- Den endgültigen Ablauf zwei Tage vor der Abfahrt verschicken',
   },
   // A one-line lead-in gives the language a foothold; the code itself has none.
   code: {
     en: 'A helper I wrote yesterday:\n```python\ndef area(r):\n    return 3.14159 * r * r\n```',
-    zh: '我昨天写的一个小函数：\n```python\ndef area(r):\n    return 3.14159 * r * r\n```',
     de: 'Eine kleine Hilfsfunktion von gestern:\n```python\ndef area(r):\n    return 3.14159 * r * r\n```',
   },
   'empty-ish': {
     en: 'ok, noted.',
-    zh: '好的，记下了。',
     de: 'Ok, notiert.',
   },
 };
 
 /** The answer to the question kind, in every language; a reply carrying it has answered. */
-export const ANSWER = /lisbon|lissabon|lisboa|里斯本/i;
+export const ANSWER = /lisbon|lissabon|lisboa/i;
 /** The claim that is true in both statement kinds. A ❌ about it is a false positive. */
-export const TRUE_CLAIM = /canberra|堪培拉/i;
+export const TRUE_CLAIM = /canberra/i;
 /** The claim that is false in the false-claim kind. */
-export const FALSE_CLAIM = /great wall|长城|mauer|moon|月球|mond/i;
+export const FALSE_CLAIM = /sun|sonne/i;
 
 export type Property =
   | 'language' // the reply is in the language of the input

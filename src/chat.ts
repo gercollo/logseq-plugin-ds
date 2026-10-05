@@ -9,10 +9,7 @@ export interface ChatMessage {
   content: string;
   /** Present on an assistant turn that asked for a tool to be run. */
   tool_calls?: ToolCall[];
-  /**
-   * The thinking a reasoning model did on that turn. DeepSeek requires it back
-   * in every request that carries `tools`; without tools it is ignored.
-   */
+  /** Optional reasoning text echoed back when continuing a tool conversation. */
   reasoning_content?: string;
   /** Set on a `tool` message, echoing the call it answers. */
   tool_call_id?: string;
@@ -69,8 +66,7 @@ interface ChatCompletionResponse {
   error?: { message?: string; type?: string; code?: string };
 }
 
-// deepseek-reasoner takes minutes on hard questions; anything longer than this
-// is almost certainly a hung connection.
+/** Long reasoning requests share a five-minute connect and response-body timeout. */
 export const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 
 /** Quoted in error messages; the settings schema declares the same value as its default. */
@@ -80,7 +76,7 @@ export const DEFAULT_BASE_PATH = 'https://api.openai.com/v1';
 // Deployment aliases and other model families can opt out through settings.
 export function isReasoner(model: string) {
   const name = model.split('/').pop() ?? model;
-  return /^(?:deepseek-reasoner(?:-|$)|o[134](?:-|$)|gpt-5(?:[.-]|$))/i.test(name);
+  return /^(?:o[134](?:-|$)|gpt-5(?:[.-]|$))/i.test(name);
 }
 
 /** `basePath` may be `https://host`, `https://host/v1`, or the full completions URL. */

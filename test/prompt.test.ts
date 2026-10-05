@@ -181,24 +181,14 @@ describe('built-in prompts', () => {
     }
   });
 
-  // Measured live on deepseek-chat. The earlier wording presumed the text was
-  // not English ("these instructions are in English, but the text is not
-  // necessarily … If the text is Chinese, reply in Chinese"), and the model
-  // resolved that to Chinese: /Summarize on an English block 5/5 Chinese,
-  // /Explain on a German block 5/5, /Ask Online on an English question 6/6.
-  // Naming English as the first example swung /Tone: Professional on a Chinese
-  // block to English 8/8. Neither presumption may come back.
   it('the language rule presumes nothing about which language the text is in', () => {
     expect(SAME_LANGUAGE).not.toMatch(/not necessarily/i);
-    expect(SAME_LANGUAGE).not.toMatch(/if the text is chinese/i);
+    expect(SAME_LANGUAGE).not.toMatch(/if the text is/i);
     expect(SAME_LANGUAGE).not.toMatch(/english text gets an english/i);
     expect(SAME_LANGUAGE).toMatch(/language the text is written in/i);
     expect(SAME_LANGUAGE).toMatch(/English included/);
   });
 
-  // Live suite: /Explain on a Chinese or German question came back as an English
-  // lesson about the text's language (0/2); /Tone: Professional rewrote a Chinese
-  // question into English (0/2). Both hold 4/4 with these sentences in place.
   it('Explain and the rewrites repeat the language rule next to the text', () => {
     const explain = PRESETS.find((p) => p.name === 'Explain');
     expect(explain!.prompt).toMatch(/Do not describe which language the text is written in/);
@@ -292,12 +282,8 @@ describe('built-in prompts', () => {
     expect(verify!.prompt).toMatch(/nothing to verify/i);
     expect(verify!.prompt).toMatch(/never invent a claim/i);
     expect(verify!.prompt).toMatch(/A question, a request, a heading.* is not a claim/i);
-    // Seen live: a block of pure opinion came back as a ❓ line plus a "Note:" line,
-    // and later as one ❓ line per opinion (live suite, 4 runs out of 4 on Chinese).
     expect(verify!.prompt).toMatch(/an opinion, a preference or a prediction is not a claim/i);
     expect(verify!.prompt).toMatch(/not even a ❓ line/);
-    // The "nothing to verify" line and the ❓ line came back in English on Chinese
-    // and German text; both now say which language to use.
     expect(verify!.prompt).toMatch(/exactly one short sentence, written in the language of the text, saying there is nothing to verify/);
     // Seen live: a code block came back as ✅ lines verifying the value of pi.
     expect(verify!.prompt).toMatch(/a piece of code, an opinion/);
@@ -315,8 +301,6 @@ describe('built-in prompts', () => {
     expect(verify!.prompt).toMatch(/Use ❌ only when the sources contradict/i);
   });
 
-  // /Ask AI answers from a knowledge cutoff: asked which DeepSeek model is
-  // current it named one two versions old. /Ask Online must look it up instead.
   it('Ask Online searches rather than answering from memory, and cites sources', () => {
     const ask = PRESETS.find((p) => p.name === 'Ask Online');
     expect(ask).toBeDefined();

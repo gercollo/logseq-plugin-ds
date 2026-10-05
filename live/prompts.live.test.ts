@@ -41,8 +41,8 @@ function loadSettings(): ISettings {
   // The environment wins over the settings file, so CI can run without one.
   const settings = readSettings({
     ...fromFile,
-    ...((env.OPENAI_API_KEY ?? env.DEEPSEEK_API_KEY) !== undefined ? { apiKey: env.OPENAI_API_KEY ?? env.DEEPSEEK_API_KEY } : {}),
-    ...((env.OPENAI_BASE_URL ?? env.DEEPSEEK_BASE_PATH) ? { basePath: env.OPENAI_BASE_URL ?? env.DEEPSEEK_BASE_PATH } : {}),
+    ...(env.OPENAI_API_KEY !== undefined ? { apiKey: env.OPENAI_API_KEY } : {}),
+    ...(env.OPENAI_BASE_URL ? { basePath: env.OPENAI_BASE_URL } : {}),
     ...(env.OPENAI_MODEL ? { model: env.OPENAI_MODEL } : {}),
     ...(env.TAVILY_API_KEY ? { searchApiKey: env.TAVILY_API_KEY } : {}),
   });
