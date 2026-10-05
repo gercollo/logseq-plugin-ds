@@ -113,6 +113,8 @@ export async function verifyWithSearch(
       content: result.content,
       tool_calls: result.toolCalls,
       ...(result.reasoningContent ? { reasoning_content: result.reasoningContent } : {}),
+      ...(result.reasoning ? { reasoning: result.reasoning } : {}),
+      ...(result.reasoningDetails?.length ? { reasoning_details: result.reasoningDetails } : {}),
     });
     for (const call of result.toolCalls) {
       const reply = await serve(call, deps, queries, served);
