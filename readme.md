@@ -138,6 +138,7 @@ Changing which commands are available (search key or custom command names) needs
 | --- | --- | --- | --- |
 | [OpenAI](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create) | `https://api.openai.com/v1` | `gpt-4o-mini` or a supported Chat Completions model | OpenAI key |
 | [OpenRouter](https://openrouter.ai/docs/quickstart) | `https://openrouter.ai/api/v1` | The provider/model identifier from OpenRouter | OpenRouter key |
+| [Grok / xAI](./docs/grok.md) | `https://api.x.ai/v1` | A supported Grok Chat Completions model, such as `grok-4.7` | xAI API key |
 | [Ollama](https://docs.ollama.com/api/openai-compatibility) | `http://localhost:11434/v1` | A model you have pulled | Empty for an unauthenticated local server |
 | [LM Studio](https://lmstudio.ai/docs/developer/openai-compat) | `http://localhost:1234/v1` | The identifier of a loaded model | Empty unless server authentication is enabled |
 | Other gateways / proxies | Their OpenAI-compatible API prefix or full completions URL | Their model or deployment name | As required by the server |
