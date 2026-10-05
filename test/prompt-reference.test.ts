@@ -1,10 +1,4 @@
-/**
- * `docs/built-in-prompts.md` and its Chinese twin are generated from the
- * prompts themselves — a hand-kept copy of fourteen prompts would be wrong
- * within a week. This file both writes them (`pnpm docs:prompts`) and, on an
- * ordinary test run, fails if the committed copy has drifted, so regenerating
- * is not something anyone has to remember.
- */
+/** Generate the English prompt reference and fail when it drifts from the source. */
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { describe as group, expect, it } from 'vitest';
@@ -24,19 +18,6 @@ whose \`name\` matches a built-in one replaces it, keeping its place in the slas
 do that, later fixes to that command stop reaching you** — the prompts here have been through
 several rounds of measured correction, and your copy is frozen at the day you took it.`,
     fields: { output: 'Output', format: 'Format', model: 'Model', search: 'Needs a search key' },
-    system: 'System',
-    user: 'Prompt',
-  },
-  zh: {
-    file: 'built-in-prompts.zh-CN.md',
-    back: '[← readme](../readme.zh-CN.md)',
-    title: '内置 prompt 全文',
-    intro: `每条命令实际发送的 prompt 原文。本文件由 \`pnpm docs:prompts\` 从代码生成 —— 要改请改 prompt，别改这里。
-
-想微调就把其中一条复制出去作为起点：[自定义命令](./custom-prompts.zh-CN.md)只要 \`name\` 和内置的
-一致就会替换掉它，并保留它在斜杠菜单里的位置。**但一旦这么做，我们之后对那条命令的修复就不会再到达你** ——
-这里的 prompt 经过了好几轮有实测依据的修正，而你的副本会停在复制它的那一天。`,
-    fields: { output: '输出', format: '格式', model: '模型', search: '需要搜索 key' },
     system: 'System',
     user: 'Prompt',
   },

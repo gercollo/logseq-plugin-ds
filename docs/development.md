@@ -2,123 +2,72 @@
 
 [← readme](../readme.md)
 
-## Building and testing
+## Build and validate
+
+Use the pnpm version pinned in `package.json`:
 
 ```sh
-pnpm test       # unit and HTTP integration tests (vitest), one of them a property-based harness over the block-writing pipeline
-pnpm lint       # eslint over src/, test/ and live/
-pnpm build      # tsc + vite → dist/
-pnpm test:live  # the prompts against the live API — costs money, needs keys; see below
+pnpm install --frozen-lockfile
+pnpm lint
+pnpm test
+pnpm build
 ```
 
-Source layout:
+The build runs TypeScript checks and writes the unpacked plugin to `dist/`. Unit tests cover
+request shaping, authentication, endpoint URLs, command dispatch, parsers and graph updates.
+An HTTP integration test covers a complete search conversation against a local compatible server.
+
+Work on a branch and open a pull request against this fork's `main`. CI runs on pull requests;
+merging a release-worthy change to `main` runs the release workflow. Generated documentation
+must match the prompt definitions: use `pnpm docs:prompts` after changing a prompt.
+
+## Source layout
 
 | File | Responsibility |
 | --- | --- |
-| `src/main.ts` | The only file that touches the `logseq` global: a few lines wiring Logseq into `plugin.ts`. Not unit-tested |
-| `src/plugin.ts` | Reads the settings, registers and dispatches the slash commands, runs one, turns failures into notifications. Tested against a fake host — a fresh install, a hand-edited settings file, a key cleared mid-session |
-| `src/graph.ts` | File-graph / DB-graph adapters; everything that touches a block goes through it |
-| `src/block.ts` | Block content — property splitting, tags, editor/DB merge |
-| `src/outline.ts` | Subtree rewrites: parsing the model's outline back into a tree and planning which blocks to update, insert, remove or keep |
-| `src/prompt.ts` | Prompt assembly and custom-prompt validation |
-| `src/settings.ts` | The settings schema and its defaults |
-| `src/search.ts` | The web search client (Tavily) |
-| `src/verify.ts` | The search loop: offer the tool, serve the calls, then answer |
-| `src/chat.ts` | The API client |
-| `src/parsers.ts` | Turning a reply into a list or named fields |
-| `src/prompts/` | The built-in prompts, one per file; `index.ts` sets the order |
-| `live/` | The behavioural suite for the prompts (below). Not part of `pnpm test` |
-
-`@logseq/libs` is the only runtime dependency; every API call is a plain `fetch`. Bundle is
-about 50 kB gzipped.
+| `src/main.ts` | Logseq SDK wiring |
+| `src/plugin.ts` | Read settings, register commands, run prompts and report errors |
+| `src/chat.ts` | OpenAI-compatible Chat Completions client |
+| `src/settings.ts` | Endpoint, model, authentication and command settings |
+| `src/graph.ts` | File-graph and DB-graph operations |
+| `src/block.ts` / `src/outline.ts` | Block metadata, tags, outline parsing and subtree rewrites |
+| `src/prompt.ts` / `src/prompts/` | Custom prompt validation and built-in commands |
+| `src/parsers.ts` | List and JSON output handling |
+| `src/search.ts` / `src/verify.ts` | Tavily search and the function-calling loop |
+| `live/` | Optional live prompt evaluation |
 
 ## Changing a prompt: run the live suite
 
-The unit tests can say that a prompt *contains* a sentence; they cannot say what the model does
-with it. Every prompt fix before this suite existed was checked by a handful of hand-run calls,
-and the record shows what that misses: one command's language fix shipped having silently turned
-four other commands Chinese, a rule against invented claims did not stop them, and a line meant
-for one command leaked a `❓` into another's prose. `live/` is the regression net for that layer.
+The live suite sends the same messages and options as the plugin and checks properties of the
+reply, rather than matching its exact text. The grid covers English and German inputs across
+questions, true and false claims, opinions, outlines, code and short notes.
 
 ```sh
-pnpm test:live                                   # the quick grid
-LIVE_SCOPE=full pnpm test:live                   # every command × kind × language
+OPENAI_API_KEY=your-key pnpm test:live
+OPENAI_BASE_URL=http://localhost:1234/v1 OPENAI_MODEL=your-loaded-model pnpm test:live
 LIVE_COMMANDS=Polish,Shorten LIVE_SAMPLES=5 pnpm test:live
-LIVE_BASELINE=write pnpm test:live               # record the current behaviour as the baseline
+LIVE_SCOPE=full pnpm test:live
+LIVE_BASELINE=write pnpm test:live
 ```
 
-It runs the real prompts — assembled by the same `buildMessages` the plugin uses, parsed by the
-same parsers — against the configured OpenAI-compatible API, and Tavily for the searching commands, over a grid
-of **command × input kind × input language**. The kinds are a question, a statement whose claims
-are all true, a statement with one true and one false claim, an opinion, a multi-line block with
-sub-points, a block with a code fence, and a near-empty "ok, noted."; the languages are English,
-Chinese and German. Each cell is run several times, and what is asserted are **properties** of
-the reply, never its exact text: the reply is in the input's language; a rewrite of a question does
-not answer it, starts with the text rather than "Here is…", and keeps an outline an outline;
-`/Summarize` is one line; `/Fact Check` flags the false claim, never the true one, in the
-`❌ … → ✅ …` shape, and says "nothing found" in one line otherwise; `/Verify Online` says there is
-nothing to verify for a question or an opinion, confirms true claims with a ✅ and a URL, and every
-URL it cites was really in the search results; `/Ask Online` answers, cites, and carries no
-`❓✅❌`. The grid and the checks are in `live/matrix.ts` and `live/checks.ts`; a custom prompt
-enabled in your settings is run too, with the generic checks only.
+Credentials can also come from `~/.logseq/settings/logseq-plugin-openai-assistant.json`.
+`LIVE_SETTINGS` selects a different file. Environment variables override the file; never commit
+credentials. The file's Extra HTTP Headers and Send Temperature settings also apply.
+Searching commands require a `TAVILY_API_KEY` or a search key in the settings file, plus a model
+that supports function calling. Every run can incur inference and search charges.
 
-The counts go to `live/last-run.json` (git-ignored) and are compared with `live/baseline.json`:
-the report lists every cell as `property k/n`, then **what moved against the baseline**, down and
-up, with the reply that failed. A cell fails when a property passes fewer than 60% of its samples
-(`LIVE_MIN_PASS`), so a single stochastic slip is reported as a count, not as a red build — read
-the counts, not only the verdict. After a deliberate prompt change that the run shows to be better,
-re-record with `LIVE_BASELINE=write` and commit `live/baseline.json` with the prompt.
+| Variable | Purpose |
+| --- | --- |
+| `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL` | Endpoint connection and model |
+| `TAVILY_API_KEY` | Optional web search |
+| `LIVE_COMMANDS` / `LIVE_KINDS` / `LIVE_LANGS` | Narrow the grid |
+| `LIVE_SAMPLES` / `LIVE_MIN_PASS` | Repeated samples and minimum passing rate |
+| `LIVE_SEARCH=0` | Omit searching commands |
+| `LIVE_FORCED=1` | Exercise the forced-answer path |
+| `LIVE_CONCURRENCY` / `LIVE_SEARCH_CONCURRENCY` | Request concurrency |
+| `LIVE_MODEL` | Override the model for the run |
+| `LIVE_BASELINE=write` | Record measured results in `live/baseline.json` |
 
-Keys come from `OPENAI_API_KEY` / `TAVILY_API_KEY` in the environment, or failing that from the
-plugin's own settings file (`~/.logseq/settings/logseq-plugin-openai-assistant.json`;
-`LIVE_SETTINGS` points elsewhere). Never write a key into the repository. Without a Tavily key the
-searching commands are simply not in the grid, as in the plugin.
-
-Set `OPENAI_BASE_URL` and `OPENAI_MODEL` for another provider or a local server. Local servers
-without authentication can leave the key empty. `DEEPSEEK_API_KEY` and `DEEPSEEK_BASE_PATH` remain
-accepted as legacy aliases. The suite uses Extra HTTP Headers and Send Temperature from the settings file.
-The checked-in baseline and the following cost measurements were recorded upstream using DeepSeek;
-they are historical, not measurements of this fork against every provider.
-
-What it cost upstream, measured with `deepseek-chat`:
-
-| Run | Cells | Calls | Time | Notes |
-| --- | --- | --- | --- | --- |
-| `quick` (default) | 8 commands × 3 kinds × 3 languages, 2 samples; searching commands on 2 kinds | 66 cells: about 155 chat calls and 45 searches | about 2 min | A few cents on DeepSeek; 5% of Tavily's free monthly 1,000 |
-| `full` | 14 commands × 7 kinds × 3 languages, 3 samples (`LIVE_FORCED=1` adds 6 cells) | 300 cells: about 980 chat calls and 350 searches | about 6 min | Well under a dollar on DeepSeek; a third of Tavily's free month |
-
-Tavily's dev keys also carry a plan usage limit: the run that recorded the current baseline hit it
-(`Tavily plan limit reached (432)`) after 182 searches, so the claim cells of `/Verify Online` in
-that run errored, are marked as such in the report, and were not written into the baseline. Budget
-the searching commands accordingly, or leave them out with `LIVE_SEARCH=0`.
-
-Narrow it with `LIVE_COMMANDS`, `LIVE_KINDS`, `LIVE_LANGS` (comma-separated, substring match) and
-`LIVE_SAMPLES`; `LIVE_SEARCH=0` leaves the searching commands out, `LIVE_FORCED=1` adds cells that
-force the answer after one search round (the `ANSWER_NOW` path), `LIVE_MODEL=deepseek-reasoner`
-runs another model (slow: the searching commands take 30–60 s each), `LIVE_CONCURRENCY` and
-`LIVE_SEARCH_CONCURRENCY` (default 6 and 3) bound what is in flight — Tavily's dev keys refuse more
-than about eight concurrent searches.
-
-## What changed from the original
-
-The original DeepSeek port fixed several bugs inherited from the AI Assistant upstream:
-
-- **Block properties were being corrupted.** The tag was appended to the raw block content, so
-  a block carrying `collapsed:: true` or `id:: …` ended up with `collapsed:: true #[[🤖]]`. The
-  `replace` mode threw away the block's properties altogether — yours included. Properties are
-  now split off, kept, and written back on their own lines.
-- **Nested blocks crashed the reader.** The old walker iterated `child.children` unconditionally,
-  so a child without a `children` array threw.
-- **`property` output produced bad keys.** A prompt named `Ask AI` wrote `ask ai:: …`. Keys are
-  now sanitized to `ask-ai::`.
-- **Errors were silent.** A failed request left the command doing nothing at all; now you get
-  a notification.
-- **Slash commands multiplied.** Every settings change re-registered all of them (once per
-  prompt, in fact).
-- **Custom prompts with literal braces failed** before the request was even sent, because
-  LangChain treated the prompt as a template.
-- **`format` was never explained to the model.** The parser was created, but its format
-  instructions were never added to the prompt, so a list or JSON reply was down to luck.
-
-Also added: request timeouts, custom-prompt validation, a temperature setting, and a test
-suite. LangChain, the OpenAI SDK, axios, React and Tailwind were all removed.
+Run reports are written to `live/last-run.json` and `live/last-run.txt`, both ignored by Git.
+No baseline ships with this fork. Record a new baseline against your chosen endpoint before
+comparing prompt changes. A baseline describes that model and run, not every compatible provider.

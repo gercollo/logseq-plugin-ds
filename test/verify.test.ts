@@ -5,8 +5,8 @@ import { ANSWER_NOW, MAX_SEARCH_HOPS, SEARCH_TOOL, verifyWithSearch } from '../s
 
 const BASE: ChatOptions = {
   apiKey: 'k',
-  basePath: 'https://api.deepseek.com/v1',
-  model: 'deepseek-chat',
+  basePath: 'https://api.openai.com/v1',
+  model: 'gpt-4o-mini',
 };
 const MESSAGES: ChatMessage[] = [{ role: 'user', content: 'check this' }];
 
@@ -99,9 +99,6 @@ describe('verifyWithSearch', () => {
     expect(seen[1].messages[3].content).toBe('No query given.');
   });
 
-  // Seen live with deepseek-reasoner: given a history full of tool calls and a
-  // request that no longer declares the tool, it answered with raw tool-call
-  // markup as text. The definitions therefore stay; calling is forbidden instead.
   it('keeps the tool defined on the last pass but forbids calling it', async () => {
     const replies: ChatResult[] = Array.from({ length: MAX_SEARCH_HOPS }, (_, i) => ({
       content: '',
@@ -129,10 +126,9 @@ describe('verifyWithSearch', () => {
     expect(ANSWER_NOW).toMatch(/format requested/);
   });
 
-  // Seen live: refused a call, deepseek-reasoner wrote the call out as text.
   it('rejects an answer that is really leaked tool-call markup', async () => {
     const { chat } = scriptedChat([
-      { content: '<｜DSML｜ calls>\n<｜DSML｜ invoke name="web_search">…' },
+      { content: '<tool_call>{"name":"web_search"}</tool_call>' },
     ]);
     await expect(
       verifyWithSearch(MESSAGES, BASE, { chat, search: async () => hit('u') }),
@@ -161,9 +157,6 @@ describe('verifyWithSearch', () => {
     expect(seen[1].messages[1]).toMatchObject({ role: 'assistant', content: 'Let me check.' });
   });
 
-  // DeepSeek documents a 400 when a reasoning model's thinking is not passed
-  // back in a tool loop, and a model that lost its reasoning is the one seen
-  // writing tool-call markup as text.
   it('passes a reasoning model’s thinking back with its tool calls', async () => {
     const { chat, seen } = scriptedChat([
       { content: '', toolCalls: [toolCall('c1', 'q')], reasoningContent: 'let me look' },

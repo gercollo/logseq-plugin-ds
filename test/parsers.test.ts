@@ -119,12 +119,12 @@ describe('list parser drops non-findings', () => {
     expect(parse('❌ Paris is the capital → ✅ Paris is the Capital. (correct)')).toEqual([]);
   });
 
-  it('works on Chinese punctuation too', () => {
-    expect(parse('❌ 硬盘是外部存储。 → ✅ 硬盘是外部存储（这句是对的）')).toEqual([]);
+  it('ignores typographic punctuation too', () => {
+    expect(parse('❌ “RAM is volatile.” → ✅ RAM is volatile (correct)')).toEqual([]);
   });
 
   it('keeps a real correction that merely starts with similar words', () => {
-    const line = '❌ 内存属于外部存储 → ✅ 内存属于内部存储（内存由 CPU 直接访问）';
+    const line = '❌ RAM is external storage → ✅ RAM is internal memory (directly accessible by the CPU)';
     expect(parse(line)).toEqual([line]);
   });
 
@@ -132,7 +132,7 @@ describe('list parser drops non-findings', () => {
   // earlier prefix test threw these away — a finding silently lost.
   it('keeps a correction that opens with the claim’s own words', () => {
     const lines = [
-      '❌ 地球是平的 → ✅ 地球是平的说法不正确，地球是球体',
+      '❌ Earth is flat → ✅ Earth is flat is an incorrect statement; Earth is spherical',
       '❌ Water boils at 100 °C → ✅ Water boils at 100 °C only at sea level (pressure)',
     ];
     expect(parse(lines.join('\n'))).toEqual(lines);
@@ -140,7 +140,7 @@ describe('list parser drops non-findings', () => {
 
   it('drops the claim repeated with an affirmation tacked on', () => {
     expect(parse('❌ RAM is volatile → ✅ RAM is volatile. This is true.')).toEqual([]);
-    expect(parse('❌ 硬盘是外部存储 → ✅ 硬盘是外部存储，这句是对的')).toEqual([]);
+    expect(parse('❌ RAM is volatile → ✅ RAM is volatile; this is correct')).toEqual([]);
   });
 
   // /Verify Online's three line forms have no ✅ after the arrow, so none of
@@ -160,7 +160,7 @@ describe('list parser drops non-findings', () => {
   });
 
   it('leaves lines that are not verdicts alone', () => {
-    expect(parse('未发现事实错误。')).toEqual(['未发现事实错误。']);
+    expect(parse('No factual errors were found.')).toEqual(['No factual errors were found.']);
     expect(parse('an ordinary brainstormed idea')).toEqual(['an ordinary brainstormed idea']);
   });
 });

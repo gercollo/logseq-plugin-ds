@@ -78,7 +78,7 @@ custom prompt called `Summarize`.
 
 Know what you are taking on. These prompts have been through several rounds of correction with
 measurements behind them, and the wording is less forgiving than it looks — one sentence about
-what language to answer in made five commands reply in Chinese to English blocks; a placeholder
+what language to answer in made five commands reply in the wrong language; a placeholder
 one clause too long got copied into people's notes; merging two near-duplicate sentences in
 `/Fact Check` brought back a fault that had been fixed. `docs/development.md` describes the live
 suite used to catch that sort of thing.

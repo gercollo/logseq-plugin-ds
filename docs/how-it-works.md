@@ -113,58 +113,38 @@ the children.
 
 Because one command can now touch several blocks, undo may take more than one Ctrl+Z.
 
-`/Ask AI` answers from the model's own knowledge, which has a cutoff — asked which DeepSeek
-model is current it named one two versions old, and asked for today's weather it can only
-suggest a weather app. **`/Ask Online`** looks the answer up instead and lists the URLs it
-relied on, says which date, time zone or place its answer applies to, and gives the range when
-the sources disagree rather than picking one. It needs the same search key as `/Verify Online`
-and takes roughly 5-20 seconds against about one for `/Ask AI`, so both are kept: ask offline
-for anything timeless, online for anything that moves.
+`/Ask AI` answers from the model's own knowledge, which has a cutoff. **`/Ask Online`**
+searches for current information and cites the URLs returned by the search tool. It requires
+an endpoint and model that support OpenAI-style function calling.
 
 ## Checking against sources: `/Verify Online`
 
-`/Fact Check` judges from the model's own knowledge, which has a cutoff. `/Verify Online`
-searches instead, and every verdict it writes carries the URL it rests on:
+`/Fact Check` judges from the model's own knowledge. `/Verify Online` searches instead:
 
-```
-- DeepSeek's strongest model is deepseek-v2, with a 32K context.    ← /Verify Online
+```text
+- The Sun orbits Earth.    ← /Verify Online
     ↓
-  - ❌ DeepSeek's strongest model is deepseek-v2 → V3, R1 and later
-      are newer and stronger — https://api-docs.deepseek.com/updates
-  - ✅ <a claim that held up> — <source url>
+  - ❌ The Sun orbits Earth → Earth orbits the Sun — <source URL>
+  - ✅ <a claim supported by a source> — <source URL>
   - ❓ <a claim no source settled>
 ```
 
-`/Verify Online` only checks what the text actually asserts. A block that is a question, a
-heading, a note to yourself, a piece of code or an opinion has nothing to verify, and it says so in
-one line rather than inventing claims to check. Measured with the [live suite](./development.md#changing-a-prompt-run-the-live-suite): that line is
-in the block's language every time for English and German but only about half the time for
-Chinese, an opinion still gets a `❓` line instead in roughly one run in four, and a one-line
-personal note ("a helper I wrote yesterday") is sometimes treated as an unverifiable claim. A claim the sources agree with gets a ✅, not a ❌ with the source
-restated as though it were a correction.
+The command checks only what the text asserts. A question, heading, code block or opinion
+has nothing to verify. Confirmed claims receive a ✅; conflicting evidence receives a ❌;
+unsettled claims receive a ❓. Model output can still be wrong, so review the cited sources.
 
-It is **off unless you set a Web Search API Key** in the settings — get one from
-[tavily.com](https://tavily.com), whose free tier is 1,000 searches a month. Without a key the
-command is not registered at all and nothing else changes; after setting one, reload the plugin.
+Searching commands are registered only when a Web Search API Key is set. The key is for
+[Tavily](https://tavily.com); reload the plugin after setting or clearing it. Each command
+can make several chat requests and searches, so latency and cost depend on the endpoint,
+model and number of searches.
 
-It costs what you would expect: with `deepseek-chat` the model searches two to four times before
-answering, so a run takes 7-12 seconds against roughly one for `/Fact Check`; `deepseek-reasoner`
-ran eight searches over four rounds and took 45 seconds on one live run. Use `/Fact Check` for everyday
-sanity-checking and this when the answer has to be attributable — versions, dates, numbers,
-anything recent.
+The model can search for at most four rounds, then must answer using the results it has.
+Transient search failures are reported back to the model. Invalid keys and exhausted quotas
+stop the command with an actionable error. Tavily receives the model's search queries.
 
-It searches at most four rounds, then has to answer with what it has. A search that fails in
-passing — a timeout, a network hiccup — is reported to the model, which writes a `❓` line for
-that claim; a rejected key or a used-up quota stops the command with an error instead, so you
-learn what to fix. What reaches Tavily is the model's own search queries, short phrases drawn
-from your block — not the block itself. `deepseek-reasoner` works too; it has to be told in so
-many words when to stop searching, and the plugin does that.
+Tool definitions stay in the conversation through the final answer. Any reasoning content
+returned alongside tool calls is passed back between rounds; it is never written to a block.
+Leaked tool-call markup is rejected instead of being inserted into notes.
 
-The search half has been run against the live services, not only against stubs: a real Tavily
-search, a rejected key (401) and a rejected parameter (400) came back in the shapes the client
-expects, and the loop ran end to end on both models — `deepseek-reasoner` through to the forced
-last pass, with its reasoning handed back between rounds as the API requires.
-
-Why Tavily rather than a plain search API: a plugin runs in a browser sandbox and cannot fetch
-arbitrary pages, because almost none of them send CORS headers. Tavily returns cleaned page text
-as part of the search, so no separate fetching step is needed.
+Tavily returns cleaned page text, so the plugin does not need to fetch source pages separately
+from Logseq's browser runtime. The tool loop is covered by unit and local HTTP integration tests.

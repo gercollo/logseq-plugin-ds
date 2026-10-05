@@ -13,7 +13,7 @@ const MESSAGES: ChatMessage[] = [
   { role: 'user', content: 'hi' },
 ];
 
-const BASE = { apiKey: 'sk-test', basePath: 'https://api.deepseek.com/v1', model: 'deepseek-chat' };
+const BASE = { apiKey: 'sk-test', basePath: 'https://api.openai.com/v1', model: 'gpt-4o-mini' };
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -45,9 +45,9 @@ afterEach(() => {
 
 describe('endpoint', () => {
   it.each([
-    ['https://api.deepseek.com/v1', 'https://api.deepseek.com/v1/chat/completions'],
-    ['https://api.deepseek.com/v1/', 'https://api.deepseek.com/v1/chat/completions'],
-    ['https://api.deepseek.com', 'https://api.deepseek.com/chat/completions'],
+    ['https://api.openai.com/v1', 'https://api.openai.com/v1/chat/completions'],
+    ['https://api.openai.com/v1/', 'https://api.openai.com/v1/chat/completions'],
+    ['https://api.openai.com', 'https://api.openai.com/chat/completions'],
     ['  https://proxy.local/openai/v1//  ', 'https://proxy.local/openai/v1/chat/completions'],
     ['https://proxy.local/v1/chat/completions', 'https://proxy.local/v1/chat/completions'],
     ['http://localhost:1234/v1', 'http://localhost:1234/v1/chat/completions'],
@@ -68,15 +68,15 @@ describe('isReasoner / buildRequestBody', () => {
     expect(buildRequestBody(MESSAGES, 'my-reasoning-model', 0.3)).toHaveProperty('temperature', 0.3);
   });
   it('sends temperature for chat models only', () => {
-    expect(isReasoner('deepseek-reasoner')).toBe(true);
-    expect(isReasoner('deepseek-chat')).toBe(false);
-    expect(buildRequestBody(MESSAGES, 'deepseek-chat', 0.7)).toEqual({
-      model: 'deepseek-chat',
+    expect(isReasoner('o3-mini')).toBe(true);
+    expect(isReasoner('gpt-4o-mini')).toBe(false);
+    expect(buildRequestBody(MESSAGES, 'gpt-4o-mini', 0.7)).toEqual({
+      model: 'gpt-4o-mini',
       messages: MESSAGES,
       stream: false,
       temperature: 0.7,
     });
-    expect(buildRequestBody(MESSAGES, 'deepseek-reasoner', 0.7)).not.toHaveProperty('temperature');
+    expect(buildRequestBody(MESSAGES, 'o3-mini', 0.7)).not.toHaveProperty('temperature');
   });
 
   it('omits tools when there are none, and sends tool_choice only with tools', () => {
@@ -84,27 +84,27 @@ describe('isReasoner / buildRequestBody', () => {
       type: 'function' as const,
       function: { name: 't', description: 'd', parameters: { type: 'object' } },
     };
-    expect(buildRequestBody(MESSAGES, 'deepseek-chat', undefined)).not.toHaveProperty('tools');
-    expect(buildRequestBody(MESSAGES, 'deepseek-chat', undefined, [])).not.toHaveProperty('tools');
-    expect(buildRequestBody(MESSAGES, 'deepseek-chat', undefined, [], 'none')).not.toHaveProperty(
+    expect(buildRequestBody(MESSAGES, 'gpt-4o-mini', undefined)).not.toHaveProperty('tools');
+    expect(buildRequestBody(MESSAGES, 'gpt-4o-mini', undefined, [])).not.toHaveProperty('tools');
+    expect(buildRequestBody(MESSAGES, 'gpt-4o-mini', undefined, [], 'none')).not.toHaveProperty(
       'tool_choice',
     );
-    expect(buildRequestBody(MESSAGES, 'deepseek-chat', undefined, [tool])).toMatchObject({
+    expect(buildRequestBody(MESSAGES, 'gpt-4o-mini', undefined, [tool])).toMatchObject({
       tools: [tool],
     });
-    expect(buildRequestBody(MESSAGES, 'deepseek-chat', undefined, [tool])).not.toHaveProperty(
+    expect(buildRequestBody(MESSAGES, 'gpt-4o-mini', undefined, [tool])).not.toHaveProperty(
       'tool_choice',
     );
-    expect(buildRequestBody(MESSAGES, 'deepseek-chat', undefined, [tool], 'none')).toMatchObject({
+    expect(buildRequestBody(MESSAGES, 'gpt-4o-mini', undefined, [tool], 'none')).toMatchObject({
       tools: [tool],
       tool_choice: 'none',
     });
   });
 
   it('omits a missing or non-finite temperature', () => {
-    expect(buildRequestBody(MESSAGES, 'deepseek-chat', undefined)).not.toHaveProperty('temperature');
-    expect(buildRequestBody(MESSAGES, 'deepseek-chat', NaN)).not.toHaveProperty('temperature');
-    expect(buildRequestBody(MESSAGES, 'deepseek-chat', 0)).toHaveProperty('temperature', 0);
+    expect(buildRequestBody(MESSAGES, 'gpt-4o-mini', undefined)).not.toHaveProperty('temperature');
+    expect(buildRequestBody(MESSAGES, 'gpt-4o-mini', NaN)).not.toHaveProperty('temperature');
+    expect(buildRequestBody(MESSAGES, 'gpt-4o-mini', 0)).toHaveProperty('temperature', 0);
   });
 });
 
@@ -177,7 +177,7 @@ describe('chat', () => {
     const result = await chat(MESSAGES, {
       ...BASE,
       apiKey: ' sk-test\n',
-      basePath: 'https://api.deepseek.com/v1/',
+      basePath: 'https://api.openai.com/v1/',
       temperature: 1.3,
       fetch,
     });
@@ -185,14 +185,14 @@ describe('chat', () => {
     expect(result).toEqual({ content: 'Answer', finishReason: 'stop', reasoningContent: 'thinking…' });
     expect(calls).toHaveLength(1);
     const { url, init } = calls[0];
-    expect(url).toBe('https://api.deepseek.com/v1/chat/completions');
+    expect(url).toBe('https://api.openai.com/v1/chat/completions');
     expect(init.method).toBe('POST');
     expect(init.headers).toEqual({
       'Content-Type': 'application/json',
       Authorization: 'Bearer sk-test',
     });
     expect(JSON.parse(init.body as string)).toEqual({
-      model: 'deepseek-chat',
+      model: 'gpt-4o-mini',
       messages: MESSAGES,
       stream: false,
       temperature: 1.3,
@@ -202,9 +202,9 @@ describe('chat', () => {
 
   it('uses the per-call model and drops temperature for the reasoner', async () => {
     const { fetch, calls } = fakeFetch(ok('x'));
-    await chat(MESSAGES, { ...BASE, model: 'deepseek-reasoner', temperature: 1.3, fetch });
+    await chat(MESSAGES, { ...BASE, model: 'o3-mini', temperature: 1.3, fetch });
     const body = JSON.parse(calls[0].init.body as string);
-    expect(body.model).toBe('deepseek-reasoner');
+    expect(body.model).toBe('o3-mini');
     expect(body).not.toHaveProperty('temperature');
   });
 
@@ -288,8 +288,6 @@ describe('chat', () => {
     await expect(chat(MESSAGES, { ...BASE, fetch: none.fetch })).rejects.toThrow(/empty response/);
   });
 
-  // DeepSeek requires a reasoning model's thinking back in every request of a
-  // tool loop, so the client has to hand it out; a chat model sends none.
   it('returns the reasoning of a tool turn, and nothing when there is none', async () => {
     const thinking = fakeFetch(
       json({ choices: [{ message: { content: null, reasoning_content: 'why', tool_calls: [CALL] }, finish_reason: 'tool_calls' }] }),
@@ -314,7 +312,7 @@ describe('chat', () => {
   it('wraps network failures with the URL and a hint', async () => {
     const { fetch } = fakeFetch(new TypeError('Failed to fetch'));
     await expect(chat(MESSAGES, { ...BASE, fetch })).rejects.toThrow(
-      /Could not reach https:\/\/api\.deepseek\.com\/v1\/chat\/completions: Failed to fetch\. Check your network/,
+      /Could not reach https:\/\/api\.openai\.com\/v1\/chat\/completions: Failed to fetch\. Check your network/,
     );
   });
 
@@ -367,7 +365,7 @@ describe('chat', () => {
 });
 
 describe('messages for a misconfigured endpoint or model', () => {
-  const url = 'https://api.deepseek.com/v2/chat/completions';
+  const url = 'https://api.openai.com/v2/chat/completions';
 
   it('names the base URL setting when the reply is not from the API at all', () => {
     expect(describeHttpError(404, '', { url })).toBe(
@@ -381,10 +379,10 @@ describe('messages for a misconfigured endpoint or model', () => {
     );
   });
 
-  it('points at the Model setting for the message DeepSeek sends for an unknown model', () => {
-    const body = '{"error":{"message":"The supported API model names are deepseek-flash, deepseek-v4-pro, but you passed deepseek-chta.","type":"invalid_request_error"}}';
-    expect(describeHttpError(400, body, { model: 'deepseek-chta' })).toBe(
-      'The API rejected the model or its parameters "deepseek-chta" (400): The supported API model names are deepseek-flash, deepseek-v4-pro, but you passed deepseek-chta. Check the Model and Temperature settings.',
+  it('points at the Model setting when the API rejects an unknown model', () => {
+    const body = '{"error":{"message":"The supported API model names are gpt-4o-mini, gpt-4.1, but you passed unknown-model.","type":"invalid_request_error"}}';
+    expect(describeHttpError(400, body, { model: 'unknown-model' })).toBe(
+      'The API rejected the model or its parameters "unknown-model" (400): The supported API model names are gpt-4o-mini, gpt-4.1, but you passed unknown-model. Check the Model and Temperature settings.',
     );
     expect(describeHttpError(400, '{"error":{"message":"Invalid temperature value, the valid range of temperature is [0, 2]"}}')).toBe(
       'The API rejected the request as malformed (400): Invalid temperature value, the valid range of temperature is [0, 2]',
@@ -393,8 +391,8 @@ describe('messages for a misconfigured endpoint or model', () => {
 
   it('refuses a base URL without a scheme before sending anything', async () => {
     const { fetch, calls } = fakeFetch(ok('x'));
-    await expect(chat(MESSAGES, { ...BASE, basePath: 'api.deepseek.com/v1', fetch })).rejects.toThrow(
-      'The API Base URL must start with http:// or https:// — it is "api.deepseek.com/v1". Check the API Base URL setting; the default is https://api.openai.com/v1.',
+    await expect(chat(MESSAGES, { ...BASE, basePath: 'api.openai.com/v1', fetch })).rejects.toThrow(
+      'The API Base URL must start with http:// or https:// — it is "api.openai.com/v1". Check the API Base URL setting; the default is https://api.openai.com/v1.',
     );
     expect(calls).toEqual([]);
   });

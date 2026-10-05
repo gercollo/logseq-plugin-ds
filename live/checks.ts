@@ -24,7 +24,7 @@ export interface CellContext {
   input: string;
 }
 
-const URL = /https?:\/\/[^\s<>()[\]"'）】，。；]+/g;
+const URL = /https?:\/\/[^\s<>()[\]"']+/g;
 const MARK = /[❓✅❌]/g;
 // `test()` on a /g regex is stateful; this one is for testing, MARK for stripping.
 const HAS_MARK = /[❓✅❌]/;
@@ -48,10 +48,6 @@ export function detectLanguage(text: string): Lang | 'unknown' {
   if (letters.length === 0) {
     return 'unknown';
   }
-  const han = letters.filter((c) => /\p{Script=Han}/u.test(c)).length;
-  if (han / letters.length >= 0.3) {
-    return 'zh';
-  }
   let en = 0;
   let de = 0;
   for (const word of text.toLowerCase().match(/\p{L}+/gu) ?? []) {
@@ -67,8 +63,8 @@ export function urlsIn(text: string): string[] {
   return (text.match(URL) ?? []).map((u) => u.replace(/[.,;:!?]+$/, ''));
 }
 
-const PREAMBLE = /^\s*(?:here(?:'s| is| are)\b|sure\b|certainly\b|of course\b|below is\b|以下是|好的[，,]|当然|hier ist\b|hier sind\b|natürlich\b|gerne\b|selbstverständlich\b)/i;
-const QUOTED = /^\s*(?:"[\s\S]*"|“[\s\S]*”|「[\s\S]*」|«[\s\S]*»)\s*$/;
+const PREAMBLE = /^\s*(?:here(?:'s| is| are)\b|sure\b|certainly\b|of course\b|below is\b|hier ist\b|hier sind\b|natürlich\b|gerne\b|selbstverständlich\b)/i;
+const QUOTED = /^\s*(?:"[\s\S]*"|“[\s\S]*”|«[\s\S]*»)\s*$/;
 
 const bool = (ok: boolean): Verdict => (ok ? 'pass' : 'fail');
 const finding = (item: string) => /^\s*❌/.test(item);
@@ -82,16 +78,11 @@ export const CHECKS: Record<Property, (s: Sample, c: CellContext) => Verdict> = 
     if (!s.raw.trim() || s.items.length === 0) return 'fail';
     // Code is looked past: a Python docstring is a legitimate `"""`.
     const outsideCode = s.raw.replace(FENCED, ' ');
-    return bool(!/<｜+DSML｜+|<tool_call>|<function_calls?>|\{content\}|\{\{text\}\}|"""/.test(outsideCode));
+    return bool(!/<tool_call>|<function_calls?>|\{content\}|\{\{text\}\}|"""/.test(outsideCode));
   },
   'no-preamble'(s, c) {
     const first = s.raw.split('\n')[0].trim();
-    // A reply that opens with the text's own first line has not added a preamble,
-    // whatever that line happens to say ("好的，记下了。" is the input, not "Sure,").
     if (first === c.input.split('\n')[0].trim()) return bool(!QUOTED.test(s.raw));
-    // Nor has one that opens the way the text does. /Tone: Professional turning
-    // "好的，记下了。" into "好的，已记录。" keeps the input's own opener; reading
-    // that as "Sure, …" would fail the command for doing its job.
     const opener = PREAMBLE.exec(first)?.[0];
     if (opener && new RegExp(`^\\s*${opener.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(c.input)) {
       return bool(!QUOTED.test(s.raw));

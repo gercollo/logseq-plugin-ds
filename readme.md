@@ -1,6 +1,6 @@
 # Logseq AI Assistant
 
-Call any OpenAI-compatible Chat Completions endpoint from a slash command, right inside a Logseq block. **English** | [中文](./readme.zh-CN.md)
+Call any OpenAI-compatible Chat Completions endpoint from a slash command, right inside a Logseq block.
 
 Type `/Polish` in a block and your chosen model rewrites it — the block **and the points nested under
 it**, each one updated in place. No window switching, no copy-paste; the answer lands in your
@@ -72,8 +72,7 @@ writing; the Tone commands change the register. Both are explicitly told not to 
 invent information. `/Shorten` and `/Expand` are not — changing the amount of detail is the
 point of those two.
 
-Answers come back in the language you wrote in — ask in Chinese, get Chinese; write in English
-or German and the answer stays in it, whether the command searches the web or not. (This rule is
+Answers come back in the language you wrote in, whether the command searches the web or not. (This rule is
 built into the preset prompts only; custom prompts say whatever you tell them to.)
 
 Everything the AI writes is tagged `#[[🤖]]` so you can find it later: replaced or appended
@@ -122,7 +121,7 @@ last saved version.
 | **API Base URL** | `https://api.openai.com/v1` | Base URL including the API prefix, or the full `/chat/completions` URL. HTTP and HTTPS are accepted; query parameters are preserved |
 | **Model** | `gpt-4o-mini` | Any model or deployment name supported by your endpoint. A custom prompt can override it |
 | **Temperature** | `0.3` | Sampling temperature for models that support it |
-| **Send Temperature** | on | Turn off to omit the parameter and use the server default. Automatically omitted for `deepseek-reasoner`, OpenAI `o1`/`o3`/`o4` and `gpt-5` model families |
+| **Send Temperature** | on | Turn off to omit the parameter and use the server default. Automatically omitted for OpenAI `o1`/`o3`/`o4` and `gpt-5` model families |
 | **Extra HTTP Headers** | `{}` | JSON object with string values, for provider-specific authentication or routing. Overrides default headers case-insensitively |
 | **Tag** | `[[🤖]]` | Added to AI output; write without `#`, or leave empty to disable |
 | **Web Search API Key** | *(empty)* | Optional [Tavily](https://tavily.com) key; enables searching commands. Requires a model with function calling |
@@ -138,7 +137,6 @@ Changing which commands are available (search key or custom command names) needs
 | Provider / server | API Base URL | Model | API Key |
 | --- | --- | --- | --- |
 | [OpenAI](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create) | `https://api.openai.com/v1` | `gpt-4o-mini` or a supported Chat Completions model | OpenAI key |
-| DeepSeek | `https://api.deepseek.com/v1` | A model supported by DeepSeek, such as `deepseek-chat` | DeepSeek key |
 | [OpenRouter](https://openrouter.ai/docs/quickstart) | `https://openrouter.ai/api/v1` | The provider/model identifier from OpenRouter | OpenRouter key |
 | [Ollama](https://docs.ollama.com/api/openai-compatibility) | `http://localhost:11434/v1` | A model you have pulled | Empty for an unauthenticated local server |
 | [LM Studio](https://lmstudio.ai/docs/developer/openai-compat) | `http://localhost:1234/v1` | The identifier of a loaded model | Empty unless server authentication is enabled |
@@ -156,9 +154,8 @@ The optional searching commands also need OpenAI-style function calling; plain c
 All responses are non-streaming. Known reasoning models omit temperature conservatively; for
 other model names or deployment aliases, turn off Send Temperature if the endpoint rejects it.
 
-This fork uses the separate plugin ID `logseq-plugin-openai-assistant`. If moving from DeepSeek
-Assistant, copy your settings into this plugin and disable the old plugin to avoid duplicate slash commands.
-Existing DeepSeek endpoints and custom prompts remain usable.
+The plugin ID is `logseq-plugin-openai-assistant`. Disable any previous assistant plugin
+with overlapping slash commands to avoid duplicates.
 
 ## When something goes wrong
 
@@ -169,7 +166,7 @@ Every failure shows up as a Logseq notification. The common ones:
 | `AI Assistant: configure your API Base URL, Model and API Key …` | The default OpenAI endpoint has no key. Configure your provider, or use a local server |
 | `The API Base URL must start with http:// or https:// — it is "…".` | The API Base URL setting has no scheme. Include `http://` or `https://` |
 | `Nothing answers at … (404). Check the API Base URL setting …` | The URL points at nothing — a typo in the path, most likely. Check your provider's API path |
-| `API request failed (…): … answered with a web page, not an API reply.` | The URL reaches a website, not the API — `platform.deepseek.com` instead of `api.deepseek.com`, say. Use your provider's API URL |
+| `API request failed (…): … answered with a web page, not an API reply.` | The URL reaches a website, not the API — a provider dashboard instead of its API host, for example. Use your provider's API URL |
 | `The API rejected the model or its parameters "…" (400): …` | Check your model name and the provider's error detail. Turn off Send Temperature if needed |
 | `Invalid API key (401): …` | Re-copy the key into settings |
 | `API account has insufficient balance (402): …` | Check your provider's billing or quota |

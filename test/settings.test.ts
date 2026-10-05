@@ -3,9 +3,6 @@ import { buildRequestBody } from '../src/chat';
 import settings, { SETTING_DEFAULTS, readTemperature } from '../src/settings';
 
 describe('readTemperature', () => {
-  // Logseq's settings panel stores a number field as a string once it has been
-  // edited ("temperature": "0.3" in the settings file); the client dropped it
-  // and every command ran at DeepSeek's default of 1.0.
   it('accepts the string Logseq stores as well as a number', () => {
     expect(readTemperature(0.3)).toBe(0.3);
     expect(readTemperature('0.3')).toBe(0.3);
@@ -19,8 +16,8 @@ describe('readTemperature', () => {
     expect(readTemperature(undefined)).toBeUndefined();
     expect(readTemperature(null)).toBeUndefined();
     expect(readTemperature('warm')).toBeNaN();
-    expect(buildRequestBody([], 'deepseek-chat', readTemperature('warm'))).not.toHaveProperty('temperature');
-    expect(buildRequestBody([], 'deepseek-chat', readTemperature('0.3'))).toHaveProperty('temperature', 0.3);
+    expect(buildRequestBody([], 'gpt-4o-mini', readTemperature('warm'))).not.toHaveProperty('temperature');
+    expect(buildRequestBody([], 'gpt-4o-mini', readTemperature('0.3'))).toHaveProperty('temperature', 0.3);
   });
 });
 

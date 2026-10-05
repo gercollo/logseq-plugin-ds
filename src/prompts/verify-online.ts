@@ -1,22 +1,6 @@
 import { SAME_LANGUAGE } from './shared';
 import { IPrompt, PromptOutputType } from './type';
 
-/**
- * The counterpart to Fact Check: where that one judges from the model's own
- * knowledge, this one has to go and look, and every line it writes carries the
- * source it relied on. Needs a search API key, so it is only registered when
- * one is configured.
- *
- * The "nothing to verify" wording was measured with the live suite (`live/`,
- * 4 runs per cell, deepseek-chat). Without "in the language of the text" the
- * line was English on Chinese and German input 4/4; with it, English and
- * German hold 4/4 and Chinese 2-3/4. Two variants were worse: adding "not in
- * English unless the text is English" made the model explain itself over two
- * lines (Chinese question: one-line reply 4/4 → 1/4), and listing the sentence
- * as a fourth form next to ✅/❌/❓ made it write ❓ lines for questions and copy
- * the placeholder text literally. Opinions still get a ❓ line each in about
- * 1 run in 4 despite being named as not a claim.
- */
 export const VerifyOnline: IPrompt = {
   name: 'Verify Online',
   system:
