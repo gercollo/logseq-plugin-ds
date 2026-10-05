@@ -38,7 +38,7 @@ See the endpoint examples below.
 
 ## The commands
 
-Twelve commands come built in, plus two that need a search key. Type `/` in a block and start typing the name.
+Thirteen commands come built in, plus two that need a search key. Type `/` in a block and start typing the name.
 
 ![The plugin's commands in the slash menu](./docs/menu.png)
 
@@ -47,6 +47,7 @@ Twelve commands come built in, plus two that need a search key. Type `/` in a bl
 | `/Ask AI` | Answers the question in the block | New child block |
 | `/Summarize` | Condenses the block | A `summarize::` property on the block |
 | `/Polish` | Fixes awkward phrasing, redundancy and grammar without changing your voice | Replaces the block text |
+| `/Spellcheck` | Corrects spelling mistakes and obvious typos, preserving wording and formatting | Replaces the block text |
 | `/Shorten` | Cuts it down, keeping the key points | Replaces the block text |
 | `/Expand` | Fills it out with more detail | Replaces the block text |
 | `/Explain` | Explains the text or code | New child block |
@@ -71,6 +72,13 @@ second opinion, not an authority, and verify anything that matters.
 writing; the Tone commands change the register. Both are explicitly told not to add, remove or
 invent information. `/Shorten` and `/Expand` are not — changing the amount of detail is the
 point of those two.
+
+**`/Spellcheck` makes minimal spelling corrections.** It covers the block and its nested points,
+preserving their language and structure. Its prompt protects code, links, page and block references,
+and tells the model to keep grammar, punctuation, style and uncertain proper names as written.
+For example, `Please chek the adress.` becomes `Please check the address.` If no spelling correction
+is needed, the model is asked to return the text unchanged. The usual AI tag still applies; clear
+the Tag setting if you want no tag added. It uses your configured endpoint and needs no search key.
 
 Answers come back in the language you wrote in, whether the command searches the web or not. (This rule is
 built into the preset prompts only; custom prompts say whatever you tell them to.)
@@ -176,7 +184,7 @@ Every failure shows up as a Logseq notification. The common ones:
 | `The model stopped at its output limit — the answer may be cut off.` | The answer was written but may be truncated. Ask for something shorter |
 | `The block is empty — nothing to send to the model.` | The block (and its children) had no text after removing properties |
 | `The block was deleted while the model was answering.` | The answer was discarded. Run the command again on the new block |
-| `This block has no text of its own to rewrite. Run the command on a block with text, or on one of the children.` | `/Polish`, `/Shorten`, `/Expand`, `/Tone:` and custom `replace` prompts only: the block is empty (or holds only the tag) and has children. Rewriting from here would shift every child up by one, so nothing was sent |
+| `This block has no text of its own to rewrite. Run the command on a block with text, or on one of the children.` | `/Polish`, `/Spellcheck`, `/Shorten`, `/Expand`, `/Tone:` and custom `replace` prompts only: the block is empty (or holds only the tag) and has children. Rewriting from here would shift every child up by one, so nothing was sent |
 | `The model returned nothing to insert.` | The reply had no usable line — with `/Fact Check`, every line it wrote was about a statement it found nothing wrong with, and those are dropped. Run it again, or on a smaller block |
 | `This Logseq version cannot set block properties on a DB graph. Update Logseq, or change the prompt’s "output" away from "property".` | DB graphs only: this Logseq build has no `upsertBlockProperty`. Update Logseq, or give the prompt another `output` |
 | `Could not write the "…" property on this DB graph: …` | DB graphs only: the property could not be defined or written; the message says why. Create the property in Logseq first, or give the prompt `output: insert` |

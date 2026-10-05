@@ -206,6 +206,7 @@ describe('built-in prompts', () => {
     );
     expect(rewrites.map((p) => p.name)).toEqual([
       'Polish',
+      'Spellcheck',
       'Tone: Friendly',
       'Tone: Confident',
       'Tone: Casual',
@@ -242,6 +243,7 @@ describe('built-in prompts', () => {
       'Expand',
       'Polish',
       'Shorten',
+      'Spellcheck',
       'Summarize',
       'Tone: Casual',
       'Tone: Confident',
@@ -330,7 +332,7 @@ describe('built-in prompts', () => {
       );
     expect(fromFiles).toHaveLength(files.length);
     expect(new Set(PRESETS)).toEqual(new Set(fromFiles));
-    expect(PRESETS).toHaveLength(14);
+    expect(PRESETS).toHaveLength(15);
   });
 });
 
