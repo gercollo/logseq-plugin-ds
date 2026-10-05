@@ -142,11 +142,14 @@ Changing which commands are available (search key or custom command names) needs
 | [LM Studio](https://lmstudio.ai/docs/developer/openai-compat) | `http://localhost:1234/v1` | The identifier of a loaded model | Empty unless server authentication is enabled |
 | Other gateways / proxies | Their OpenAI-compatible API prefix or full completions URL | Their model or deployment name | As required by the server |
 
+See [the OpenRouter setup guide](./docs/openrouter.md) for model selection, optional app headers
+and reasoning models with search tools.
+
 For a deployment endpoint with query parameters, enter its full URL, for example
 `https://YOUR_RESOURCE.openai.azure.com/openai/deployments/YOUR_DEPLOYMENT/chat/completions?api-version=YOUR_API_VERSION`.
 Use the API version specified by your provider. For `api-key` authentication, leave API Key empty
 and set Extra HTTP Headers to `{"api-key":"YOUR_KEY"}`. Other custom headers, such as
-`{"HTTP-Referer":"https://your-site.example","X-Title":"Logseq"}`, work the same way.
+`{"HTTP-Referer":"https://your-site.example","X-OpenRouter-Title":"Logseq"}`, work the same way.
 
 Compatibility means the text **Chat Completions** request/response format, including system messages.
 Endpoints that expose only Responses or a provider's native API need a compatible gateway.

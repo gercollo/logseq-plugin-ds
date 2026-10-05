@@ -11,6 +11,10 @@ export interface ChatMessage {
   tool_calls?: ToolCall[];
   /** Optional reasoning text echoed back when continuing a tool conversation. */
   reasoning_content?: string;
+  /** Plaintext reasoning returned by gateways such as OpenRouter. */
+  reasoning?: string;
+  /** Opaque reasoning blocks; signatures, encryption and ordering must survive tool turns. */
+  reasoning_details?: unknown[];
   /** Set on a `tool` message, echoing the call it answers. */
   tool_call_id?: string;
 }
@@ -56,11 +60,19 @@ export interface ChatResult {
   toolCalls?: ToolCall[];
   /** A reasoning model's thinking, when it sent any. Never shown; echoed back in a tool loop. */
   reasoningContent?: string;
+  reasoning?: string;
+  reasoningDetails?: unknown[];
 }
 
 interface ChatCompletionResponse {
   choices?: {
-    message?: { content?: unknown; reasoning_content?: unknown; tool_calls?: unknown };
+    message?: {
+      content?: unknown;
+      reasoning_content?: unknown;
+      reasoning?: unknown;
+      reasoning_details?: unknown;
+      tool_calls?: unknown;
+    };
     finish_reason?: string;
   }[];
   error?: { message?: string; type?: string; code?: string };
@@ -219,11 +231,15 @@ function extractContent(payload: ChatCompletionResponse): ChatResult {
   }
 
   const reasoning = choice?.message?.reasoning_content;
+  const plainReasoning = choice?.message?.reasoning;
+  const details = choice?.message?.reasoning_details;
   return {
     content,
     finishReason: choice?.finish_reason,
     ...(toolCalls ? { toolCalls } : {}),
     ...(typeof reasoning === 'string' && reasoning ? { reasoningContent: reasoning } : {}),
+    ...(typeof plainReasoning === 'string' && plainReasoning ? { reasoning: plainReasoning } : {}),
+    ...(Array.isArray(details) && details.length ? { reasoningDetails: details } : {}),
   };
 }
 
