@@ -1,3 +1,9 @@
+# [1.4.1](https://github.com/gercollo/logseq-plugin-ds/compare/v1.4.0...v1.4.1) (2026-10-06)
+
+### Bug fixes
+
+* Remove added triple-quote wrapper lines from built-in `/Spellcheck` replies, including unchanged sentences, while preserving source quotations and custom prompt formatting ([#7](https://github.com/gercollo/logseq-plugin-ds/pull/7)).
+
 # [1.4.0](https://github.com/gercollo/logseq-plugin-ds/compare/v1.3.0...v1.4.0) (2026-10-05)
 
 ### Features
