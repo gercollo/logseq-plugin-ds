@@ -1,6 +1,6 @@
 {
   "name": "logseq-plugin-openai-assistant",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "packageManager": "pnpm@9.15.9",
   "main": "dist/index.html",
   "scripts": {
